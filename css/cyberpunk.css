@@ -11350,6 +11350,58 @@ figure.highlight.foldable div.level-left {
 .gist .file {
   all: initial;
 }
+.listing {
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  margin: 1em 0 1em !important;
+  border-radius: 0;
+  font-family: 'Roboto Mono', monospace, 'Microsoft YaHei';
+}
+.listing .listing-title {
+  margin: 0 !important;
+  padding: 0.3em 0em 0.3em 0.75em;
+  font-size: 0.95em;
+  font-style: normal;
+  font-weight: 500;
+  background: rgba(200,200,200,0.15);
+}
+.listing .listing-title * {
+  color: inherit;
+}
+.listing .listing-body {
+  overflow: auto;
+  font-size: 0.85em;
+  font-weight: inherit;
+  font-style: inherit;
+  background: #fafafa;
+}
+.listing .listing-body table {
+  width: auto;
+}
+.listing .listing-body table tr td {
+  border: none;
+}
+.listing .listing-body table tr:not(:first-child) td {
+  padding-top: 0;
+}
+.listing .listing-body table tr:not(:last-child) td {
+  padding-bottom: 0;
+}
+.listing .listing-body table .gutter,
+.listing .listing-body table .code {
+  line-height: 1rem;
+}
+.listing .listing-body table .gutter {
+  background: rgba(200,200,200,0.15);
+  text-align: right;
+}
+.listing .listing-body table .code {
+  white-space: pre;
+  word-wrap: normal;
+  text-align: left;
+}
 .widget i {
   height: 20px;
   width: 20px;
