@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>物化视图维护的代数方法 - Xiaogang Shi&#039;s Home</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Xiaogang Shi&#039;s Home"><meta name="msapplication-TileImage" content="/img/favicon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Xiaogang Shi&#039;s Home"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="为了保证与数据源的一致性，当数据源发生变化时，物化视图需要进行及时的更新。很多时候，数据源的变化相比于整体而言是较小的。此时使用增量更新的方式来对物化视图进行维护会更加高效。本文主要介绍维护物化视图的代数方法。这些方法可能在某些算子上无法提供最高效的维护方法，但在语义上比较直观。"><meta property="og:type" content="blog"><meta property="og:title" content="物化视图维护的代数方法"><meta property="og:url" content="https://shixiaogang.github.io/materialized-views/algebraic-methods/"><meta property="og:site_name" content="Xiaogang Shi&#039;s Home"><meta property="og:description" content="为了保证与数据源的一致性，当数据源发生变化时，物化视图需要进行及时的更新。很多时候，数据源的变化相比于整体而言是较小的。此时使用增量更新的方式来对物化视图进行维护会更加高效。本文主要介绍维护物化视图的代数方法。这些方法可能在某些算子上无法提供最高效的维护方法，但在语义上比较直观。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://shixiaogang.github.io/img/og_image.png"><meta property="article:published_time" content="2023-04-05T00:00:00.000Z"><meta property="article:modified_time" content="2023-04-05T12:24:53.520Z"><meta property="article:author" content="Xiaogang Shi (施晓罡)"><meta property="article:tag" content="ETL"><meta property="article:tag" content="物化视图"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://shixiaogang.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://shixiaogang.github.io/materialized-views/algebraic-methods/"},"headline":"物化视图维护的代数方法","image":["https://shixiaogang.github.io/img/og_image.png"],"datePublished":"2023-04-05T00:00:00.000Z","dateModified":"2023-04-05T12:24:53.520Z","author":{"@type":"Person","name":"Xiaogang Shi (施晓罡)"},"publisher":{"@type":"Organization","name":"Xiaogang Shi's Home","logo":{"@type":"ImageObject","url":"https://shixiaogang.github.io/img/logo.png"}},"description":"为了保证与数据源的一致性，当数据源发生变化时，物化视图需要进行及时的更新。很多时候，数据源的变化相比于整体而言是较小的。此时使用增量更新的方式来对物化视图进行维护会更加高效。本文主要介绍维护物化视图的代数方法。这些方法可能在某些算子上无法提供最高效的维护方法，但在语义上比较直观。"}</script><link rel="canonical" href="https://shixiaogang.github.io/materialized-views/algebraic-methods/"><link rel="icon" href="/img/favicon.png"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.3.0"></head><body class="is-3-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Blog</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item is-hidden-tablet catalogue" title="目录" href="javascript:;"><i class="fas fa-list-ul"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-6-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2023-04-05T00:00:00.000Z" title="4/5/2023, 12:00:00 AM">2023-04-05</time>发表</span><span class="level-item">30 分钟读完 (大约4468个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">物化视图维护的代数方法</h1><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/ETL/">ETL</a><a class="link-muted mr-2" rel="tag" href="/tags/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/">物化视图</a></div><div class="content"><p>为了保证与数据源的一致性，当数据源发生变化时，物化视图需要进行及时的更新。很多时候，数据源的变化相比于整体而言是较小的。此时使用增量更新的方式来对物化视图进行维护会更加高效。本文主要介绍维护物化视图的代数方法。这些方法可能在某些算子上无法提供最高效的维护方法，但在语义上比较直观。</p>
+<h2 id="研究历史"><a href="#研究历史" class="headerlink" title="研究历史"></a>研究历史</h2><p>对物化视图维护的研究最早可追溯到1980年代。这些早期的工作都局限在特定的数据库模型上。[1] 对函数式关联数据模型 (functional association data model) 上的视图维护方法进行了研究。而 [2] 只支持无环数据库 (acyclic database) 上的视图。这些视图先将数据表中所有关系表进行自然连接，之后进行映射；无法支持选择操作，也无法对部分表进行连接。</p>
+<p>[3] 是第一个对一般物化视图的维护进行研究的工作，他们的方法可以对包含选择、映射和连接等操作在内的视图进行维护。[4] 则进一步提出使用代数方法 (algebraic method) 来描述物化视图维护的方法。在代数方法中，输入表$R$的更新被描述为一对增量表：$\nabla R$和$\Delta R$。其中$\nabla R$表示$R$中被删除的记录，而$\Delta R$表示$R$中新插入的记录。我们使用一组等式来描述这些变化是如何在算子之间传播的。在 [4] 中，作者提供了<em>集合代数 (set algebraic)</em> 上选择、映射、笛卡尔积、并、差、交和内连接等算子的变化传播方程 (change propagation equation)。[5] 则给出了<em>包代数 (bag algebraic)</em> 上相关算子的变化传播方程。</p>
+<p>[6] 为包含外连接的视图提供了维护方法，但他们的方法并不是基于代数形式的。[7] 给出了描述维护半连接和外连接视图的代数方法。[8] 给出了基于change table方法对外连接视图进行更新的方法，但他们的方法显然是错误的。</p>
+<p>相较于其他算子，聚合算子的变化传播很难通过代数形式进行描述。首先，聚合算子本身的代数描述就比困难。其次，部分聚合操作（如 median）并不满足分配律 (distributive property)，因此无法很难描述输出变化和输入变化之间的关系。 [5] 给出了聚合算子的变化传播方程，但他们的聚合算子无法支持分组语句 (group-by)，并且只能作为视图中最后一个算子。[8] 通过通用映射 (general projection) 来对聚合操作进行描述，给出了一般情况下可分配的聚合算子的变化传播方程。除此之外，其他在维护聚合视图上的工作 [10, 11]，都只描述了具体的过程，而没有给出形式化描述。</p>
+<p>在维护视图的代数方法中，如果我们向后传播的插入和删除中存在重叠的记录，那么显然会导致后面的增量更新存在不必要的冗余计算。我们希望向下游传播的变化是最小化的，即$\Delta R \cap \nabla R &#x3D; \emptyset$。[4] 虽然给出了常见算子的变化传播方法并号称这些方法满足最小化条件，但实际并非如此。[12] 指出了 [4] 中的错误，并给出了一个通用的构建最小化结果变化的方法。</p>
+<p>虽然代数方法可以用于解决一般情况下的视图更新问题，但在实际中我们的视图通常会多个嵌套的算子。此时使用代数方法去逐个算子逐个输入的去计算视图的变化效率会非常低。此时，我们常常需要一些更加高效但没有那么纯粹 (pure) 的方法来计算视图的更新 [9]。</p>
+<h2 id="视图更新的代数方法"><a href="#视图更新的代数方法" class="headerlink" title="视图更新的代数方法"></a>视图更新的代数方法</h2><h3 id="选择-Select"><a href="#选择-Select" class="headerlink" title="选择 (Select)"></a>选择 (Select)</h3><p>选择算子的变化传播方程如下</p>
+<p>$$ \sigma_p(R \cup \Delta R) &#x3D; \sigma_p(R) + \sigma_p(\Delta R)$$</p>
+<p>$$\sigma_p(R - \nabla R) &#x3D; \sigma_p(R) - \sigma_p(\nabla R)$$</p>
+<h3 id="映射-Project"><a href="#映射-Project" class="headerlink" title="映射 (Project)"></a>映射 (Project)</h3><p>映射算子的变化传播方程如下</p>
+<p>$$\pi_A(R \cup \Delta R) &#x3D; \pi_A(R) \cup \pi_A(\Delta R)$$</p>
+<p>$$\pi_A(R - \nabla R) &#x3D; \pi_A(R) - \pi_A(\nabla R)$$</p>
+<h3 id="并-Union"><a href="#并-Union" class="headerlink" title="并 (Union)"></a>并 (Union)</h3><p>集合代数和包代数下并操作有着不同的语义。我们使用<code>UNION</code>和<code>UNION ALL</code>来区分这两种不同的操作。</p>
+<h4 id="UNION-ALL"><a href="#UNION-ALL" class="headerlink" title="UNION ALL"></a>UNION ALL</h4><p>我们使用$R \cup S$来表示表$R$和$S$在包语义下的并操作。如果一个记录$t$在$R$中出现了$n$次，在$S$中出现了$m$次。如果$n &gt; 0$或者$m&gt;0$，那么$t \ in R \cup S$，并且在$R\cup S$中出现$n + m$次。</p>
+<p><code>UNION ALL</code>的变化传播方程如下</p>
+<p>$$(R - \nabla R) \cup S &#x3D; (R \cup S) - \nabla R$$</p>
+<p>$$(R \cup \Delta R) \cup S &#x3D; (R \cup S) \cup \Delta R$$</p>
+<h4 id="UNION"><a href="#UNION" class="headerlink" title="UNION"></a>UNION</h4><p>我们使用$R\sqcup S$表示表$R$和$S$在集合语义下的并操作。如果一个记录$t$在$R$出现了或者在$S$中出现了，那么$t$也会出现在$R \sqcup S$中，并且只出现一次。</p>
+<p>当$R$中某个记录$r$被删除时，对于$R \sqcup S$可能存在以下两种情况</p>
+<ul>
+<li>如果$r$在$R - \nabla R$或者$S$中出现了，那么$r$仍然会在最终的结果中出现。$r$的删除并不会对最终的结果产生任何影响。</li>
+<li>如果$r$既没有出现在$R - \nabla R$中，也没有出现在$S$中，那么从$R$中删除$r$之后，$r$也会从最终的结果中被删除。我们使用$\nabla R \ominus ((R - \nabla R) \sqcup S)$ 来表示$\nabla R$中没有出现在$R - \nabla R$和$S$中的记录。</li>
+</ul>
+<p>根据上面的讨论可知：</p>
+<p>$$ (R - \nabla R) \sqcup S &#x3D; (R \sqcup S) - (\nabla R \ominus ((R - \nabla R) \sqcup S))$$</p>
+<p>当$R$中添加某个记录$r$时，对于$R \sqcup S$可能存在以下两种情况</p>
+<ul>
+<li>如果$r$已经在$R$或者$S$中出现了，那么$r$已经在最终的结果中出现了。插入$r$并不会对最终的结果产生任何影响。</li>
+<li>如果$r$既没有出现在$R$中，也没有出现在$S$中，那么$r$就需要添加到最终的结果中。我们使用$\Delta R \ominus (R \sqcup S)$来表示$\Delta R$中既没有出现在$R$也没有出现在$S$中的记录。</li>
+</ul>
+<p>根据上面的讨论可知</p>
+<p>$$(R \cup \Delta R) \sqcup S &#x3D; (R \sqcup S) \cup (\Delta R \ominus (R \sqcup S))$$</p>
+<h3 id="交-Intersect"><a href="#交-Intersect" class="headerlink" title="交 (Intersect)"></a>交 (Intersect)</h3><p>和并操作一样，交操作需要区分集合语义和包语义。我们使用<code>INTERSECT ALL</code>表示包语义下的并操作，<code>INTERSECT</code>表示集合语义下的并操作。</p>
+<h4 id="INTERSECT-ALL"><a href="#INTERSECT-ALL" class="headerlink" title="INTERSECT ALL"></a>INTERSECT ALL</h4><p>我们使用$R \cap S$表示表$R$和$S$在包语义下的交操作。如果一个记录$t$在$R$中出现了$n$次，在$S$中出现了$m$次，并且$n &gt; 0, m &gt; 0$，那么$t \in R \cap S$，并在$R \cap S$中出现$\min(n, m)$次。</p>
+<p>当$R$中删除一个记录$r$时</p>
+<ul>
+<li>如果$n &gt; m$，那么在删除掉$r$不会对最终的结果产生影响。</li>
+<li>如果$n \le m$，那么在删除掉$r$之后，应该在最终的结果中减少一次$r$的出现。</li>
+</ul>
+<p>根据上面的讨论可知</p>
+<p>$$ (R - \nabla R) \cap S &#x3D; (R \cap S) - (\nabla R - (R - S)) $$</p>
+<p>当$R$中插入一个记录$r$时</p>
+<ul>
+<li>如果$n \ge m$，那么在添加$r$时不会对最终的结果产生影响。</li>
+<li>如果$n &lt; m$，那么在添加$r$后，应该在最终的结果中增加一次$r$的出现。</li>
+</ul>
+<p>根据上面的讨论可知</p>
+<p>$$ (R \cup \Delta R) \cap S &#x3D; (R \cap S) \cup (\Delta R \cap (S - R)) $$</p>
+<h4 id="INTERSECT"><a href="#INTERSECT" class="headerlink" title="INTERSECT"></a>INTERSECT</h4><p>我们使用$R \sqcap S$表示表$R$和$S$在集合语义下的交操作。如果一个记录$t$在$R$中出现了，在$S$中也出现了，那么$t \in R \sqcap S$，并在$R \sqcap S$中出现一次。</p>
+<p>参考<code>UNION</code>的讨论方式，可得<code>INTERSECT</code>的变化传播方程为</p>
+<p>$$(R - \nabla R) \sqcap S &#x3D; (R \sqcap S) - (\nabla R \sqcap (S \ominus (R - \nabla R)))$$</p>
+<p>$$(R \cup \Delta R) \sqcap S &#x3D; (R \sqcap S) \cup (\Delta R \sqcap (S \ominus R)))$$</p>
+<h3 id="差-Minus"><a href="#差-Minus" class="headerlink" title="差 (Minus)"></a>差 (Minus)</h3><p>和并操作一样，差操作需要区分集合语义和包语义。我们使用<code>MINUS ALL</code>表示包语义下的差操作，<code>MINUS</code>表示集合语义下的差操作。</p>
+<h4 id="MINUS-ALL"><a href="#MINUS-ALL" class="headerlink" title="MINUS ALL"></a>MINUS ALL</h4><p><code>MINUS ALL</code>按照包语义执行差操作。我们使用$R - S$表示表$R$和$S$在包语义下的差操作。如果一个记录$t$在$R$中出现了$n$次，在$S$中出现了$m$次，并且$n &gt; m$，那么$t \in R - S$，并且在$R - S$中出现$n - m$次。</p>
+<p><code>MINUS ALL</code>的变化传播方程如下</p>
+<p>$$(R - \nabla R) - S &#x3D; (R - S) - \nabla R$$</p>
+<p>$$(R \cup \Delta R) - S &#x3D; (R - S) \cup \Delta R$$</p>
+<h4 id="MINUS"><a href="#MINUS" class="headerlink" title="MINUS"></a>MINUS</h4><p><code>MINUS</code>按照集合语义执行差操作。我们使用$R \ominus S$表示表$R$和$S$在集合语义下的差操作。如果一个记录$t$在$R$中出现了，但在$S$中没有出现，那么$t \in R \ominus S$，并且在$R \ominus S$只出现一次。</p>
+<p>当我们从$R$中删除一个记录$r$时</p>
+<ul>
+<li>如果$r$没有在$S$中出现，那么$r$应该会出现在原来的结果中。<ul>
+<li>如果$r$也没有在$R - \nabla R$中出现，那么将$r$从$R$中删除之后，$r$就需要从最终的结果中删除掉。</li>
+<li>如果$r$出现在$R - \nabla R$中，那么将$r$从$R$中删除之后，并不会对最终的结果产生任何影响。</li>
+</ul>
+</li>
+<li>如果$r$出现在$S$中，那么$r$本来就不存在于原来的结果中。删除$r$并不会对最终的结果产生任何影响。</li>
+</ul>
+<p>根据上面的讨论可知，当$r$既没有出现在$S$中也没有出现在$R - \nabla R$中时，删除$r$会导致$r$从最终的结果中删除。因此</p>
+<p>$$(R - \nabla R) \ominus S &#x3D; (R \ominus S) - (\nabla R \ominus ((R - \nabla R) \sqcup S))$$</p>
+<p>当我们向$R$中插入一个新记录$r$时</p>
+<ul>
+<li>如果$r$已经出现在$S$中了，那么$r$不会出现在原来的结果中，插入$r$也不会导致最终结果的变化。</li>
+<li>如果$r$没有在$S$中出现<ul>
+<li>如果$r$已经出现在$R$中了，那么插入$r$也不会导致最终结果的变化。</li>
+<li>如果$r$没有出现在$R$中，那么插入$r$后$r$会出现在最终结果中。</li>
+</ul>
+</li>
+</ul>
+<p>根据上面的讨论可知，当$r$既没有出现在$S$也没有出现在$R$中时，插入$r$会导致$r$添加到最终的结果中。因此</p>
+<p>$$(R \cup \Delta R) \ominus S &#x3D; (R \ominus S) \cup (\Delta R \ominus (R \sqcup S))$$</p>
+<p>类似的，我们对$S$插入或删除的情况进行讨论，可得</p>
+<p>$$ R \ominus (S - \nabla S) &#x3D; (R \ominus S) \cup (\nabla S \sqcap (R \ominus (S - \nabla S)))$$</p>
+<p>$$R \ominus (S \cup \Delta S) &#x3D; (R \ominus S) - (\Delta S \sqcap (R \ominus S))$$</p>
+<h3 id="内连接-Inner-Join"><a href="#内连接-Inner-Join" class="headerlink" title="内连接 (Inner Join)"></a>内连接 (Inner Join)</h3><p>我们用$R \Join_p S$表示表$R$和表$S$按照连接条件$p$进行的连接操作。</p>
+<p>内连接的变化传播方程如下</p>
+<p>$$(R - \nabla R) \Join_p S &#x3D; (R \Join_p S) - (\nabla R \Join_p S)$$</p>
+<p>$$(R \cup \Delta R) \Join_p S &#x3D; (R \Join_p S) \cup (\Delta R \Join_p S)$$</p>
+<h3 id="左外连接-Left-Outer-Join"><a href="#左外连接-Left-Outer-Join" class="headerlink" title="左外连接 (Left Outer Join)"></a>左外连接 (Left Outer Join)</h3><p>我们使用$R ⟕_p S$表示表$R$和$S$按照条件$p$进行的左外连接操作。左外连接$R ⟕_p S$除了返回$R \Join S$之外，还会将$R$中无法和$S$进行连接的记录用null补齐$S$中的字段返回。即</p>
+<p>$$R ⟕_p S &#x3D; (R \Join_p S) \cup ((R \bar{\ltimes} S) \times {d_S})$$</p>
+<p>其中$d_S$ 是一个和$S$的字段一致并且所有列都为null的记录。</p>
+<p>当$R$中某个记录$r$被删除时</p>
+<ul>
+<li>如果在表$S$中存在$s$使得$p(r,s)$成立，那么$(r, s)$出现在原来的结果中，此时我们需要将$(r,s)$从最终的结果中删除。</li>
+<li>如果在表$S$中不存在$s$使得$p(r,s)$成立，那么$(r, d_S)$ 出现在原来的结果中。此时我们需要将$(r, d_S)$从最终的结果中删除。</li>
+</ul>
+<p>根据上面的讨论可知</p>
+<p>$$(R - \nabla R) ⟕_p S &#x3D; (R ⟕_p S) - (\nabla R ⟕_p S)$$</p>
+<p>当$R$中添加某个记录$r$时</p>
+<ul>
+<li>如果在表$S$中存在$s$使得$p(r,s)$成立，那么$(r,s)$会出现在最终的结果中。</li>
+<li>如果在表$S$中不存在$s$使得$p(r,s)$成立，那么$(r, d_S)$会出现在最终的结果中。</li>
+</ul>
+<p>根据上面的讨论可知</p>
+<p>$$(R \cup \Delta R) ⟕_p S &#x3D; (R ⟕_p S) \cup (\Delta R ⟕_p S)$$</p>
+<p>类似的，我们对$S$插入或删除的情况进行讨论，可得</p>
+<p>$$R ⟕_p (S - \nabla S) &#x3D; ((R ⟕_p S) - (R \Join_p \nabla S)) \cup (((R \ltimes_p \nabla S) \bar{\ltimes}_p (S - \nabla S)) \times {d_S})$$</p>
+<p>$$R ⟕_p (S \cup \Delta S) &#x3D; ((R ⟕_p S) \cup (R \Join_p \Delta S)) - (((R \ltimes_p \Delta S) \bar{\ltimes}_p S) \times {d_S})$$</p>
+<h3 id="全外连接-Full-Outer-Join"><a href="#全外连接-Full-Outer-Join" class="headerlink" title="全外连接 (Full Outer Join)"></a>全外连接 (Full Outer Join)</h3><p>我们使用$R ⟗_p S$表示表$R$和$S$按照条件$p$进行的全外连接操作。全外连接$R ⟗_p S$除了返回$R \Join S$之外，还会将$R$中无法和$S$进行连接的记录用null补齐$S$中的字段返回，将$S$中无法和$R$进行连接的记录用null补齐$R$中的字段后返回。即</p>
+<p>$$R ⟗_p S &#x3D; (R \Join_p S) \cup ((R \bar{\ltimes} S) \times {d_S}) \cup ((S \bar{\ltimes} R) \times {d_R})$$</p>
+<p>其中$d_S$ 是一个和$S$的字段一致并且所有列都为null的记录，$d_R$是一个和$R$的字段一致并且所有列都为null的记录。</p>
+<p>和左外连接的情况类似，我们可得</p>
+<p>$$(R - \nabla R) ⟗_p S &#x3D; ((R ⟗_p S) - (\nabla R ⟕_p S)) \cup (((S \ltimes_p \nabla R) \bar{\ltimes}_p (R - \nabla R)) \times {d_R})$$</p>
+<p>$$(R \cup \Delta R) ⟗_p S &#x3D; ((R ⟗_p S) \cup (\Delta R ⟕_p S)) - (((S \ltimes_p \Delta R) \bar{\ltimes}_p R) \times {d_R})$$</p>
+<h3 id="半连接-Semi-Join"><a href="#半连接-Semi-Join" class="headerlink" title="半连接 (Semi Join)"></a>半连接 (Semi Join)</h3><p>我们使用$R \ltimes_p S$表示表$R$和$S$按照条件$p$​进行的半连接操作。半连接$R \ltimes_p S$返回$R$中和$S$可以按照连接条件$p$进行连接的记录，即</p>
+<p>$$ R \ltimes_p S &#x3D; { r | r \in R, \exists s \in S, p(r, s) }$$ </p>
+<p>当$R$中某个记录$r$被删除时</p>
+<ol>
+<li>如果在表$S$中存在$s$使得$p(r, s)$成立，那么$r$出现在原来的结果中。此时我们需要将$r$从最终的结果中删除。</li>
+<li>如果在表$S$中不存在$s$使得$p(r, s)$成立，那么$r$没有出现在原来的结果中，因此也就不会对最终的结果产生影响。</li>
+</ol>
+<p>根据上面的讨论可知</p>
+<p>$$(R - \nabla R) \ltimes_p S &#x3D; (R \ltimes_p S) - (\nabla R \ltimes_p S)$$</p>
+<p>当$R$中添加某个记录$r$时</p>
+<ol>
+<li>如果在表$S$中存在$s$使得$p(r, s)$成立，那么$r$会出现在最终的结果中。</li>
+<li>如果在表$S$中不存在$s$使得$p(r, s)$成立，那么$r$不会出现在最终的结果中。</li>
+</ol>
+<p>根据上面的讨论可知</p>
+<p>$$(R \cup \Delta R) \ltimes_p S &#x3D; (R \ltimes_p S) \cup (\Delta R \ltimes_p S)$$</p>
+<p>类似的，我们对$S$插入或删除的情况进行讨论，可得</p>
+<p>$$R \ltimes_p (S - \nabla S) &#x3D; (R \ltimes_p S) - ((R \ltimes_p \nabla S) \bar{\ltimes}_p (S - \nabla S))$$</p>
+<p>$$ R \ltimes_p (S \cup \Delta S) &#x3D; (R \ltimes_p S) \cup ((R \ltimes_p \Delta S) \bar{\ltimes}_p S))$$</p>
+<h3 id="反半连接-Anti-Semi-Join"><a href="#反半连接-Anti-Semi-Join" class="headerlink" title="反半连接 (Anti Semi Join)"></a>反半连接 (Anti Semi Join)</h3><p>我们使用$R \bar{\ltimes}_p S$表示表$R$和$S$按照条件$p$进行的反半连接操作。反半连接$R \bar{\ltimes}_p S$返回$R$中可以和$S$按照连接条件$p$进行连接的记录，即</p>
+<p>$$ R \bar{\ltimes}_p S &#x3D; { r | r \in R, \nexists s \in S, p(r, s) }$$ </p>
+<p>和半连接的情况类似，我们可得</p>
+<p>$$(R - \nabla R) \bar{\ltimes}_p S &#x3D; (R \bar{\ltimes}_p S) - (\nabla R \bar{\ltimes}_p S)$$</p>
+<p>$$(R \cup \Delta R) \bar{\ltimes}_p S &#x3D; (R \bar{\ltimes}_p S) \cup (\Delta R \bar{\ltimes}_p S)$$</p>
+<p>$$R \bar{\ltimes}_p (S - \nabla S) &#x3D; (R \bar{\ltimes}_p S) \cup ((R \ltimes_p \nabla S) \bar{\ltimes}_p (S - \nabla S))$$</p>
+<p>$$R \bar{\ltimes}_p (S \cup \Delta S) &#x3D; (R \bar{\ltimes}_p S) - (R \ltimes_p \Delta S)$$</p>
+<h2 id="Related-Work"><a href="#Related-Work" class="headerlink" title="Related Work"></a>Related Work</h2><p>[1] S. Koenig et al. <em>A transformational framework for the automatic control of derived data</em>. In VLDB 1981, pp. 306-318.</p>
+<p>[2] O. Shmueli et al. <em>Maintenance of views</em>. In SIGMOD 1984, pp. 240-255.</p>
+<p>[3] J. Blakeley et al. <em>Efficiently updating materialied views</em>. In SIGMOD 1986, pp. 61-71. </p>
+<p>[4] X. Qian et al. <em>Incremental recomputation of active relational expressions</em>. In TKDE 1991 vol. 3(3) pp. 337-341.</p>
+<p>[5] T. Griffin et al. <em>Incremental maintenance of views with duplicates</em>. In SIGMOD 1995, pp. 328-339.</p>
+<p>[6] A. Gupta et al. <em>Maintenance and self-maintenance of outerjoin views</em>. In Next Generation Information Technology and Systems 1997.</p>
+<p>[7] T. Griffin et al. <em>Algebraic change propagation for semijoin and outerjoin queries</em>. In SIGMOD Record 1998 vol. 27(3), pp. 22-27.</p>
+<p>[8] H. Gupta et al. <em>Incremental maintenance of aggregate and outerjoin expressions</em>. In Information Systems 2006, vol. 31(6), pp. 435-464.</p>
+<p>[9] P. Larson et al. <em>Efficient maintenance of materialized outer-join views</em>. In ICDE 2007, pp. 56-65.</p>
+<p>[10] I. Mumick et al. <em>Maintenance of data cubes and summary tables in a warehouse</em>. In SIGMOD Record 1997, vol. 26(2), pp.100-111.</p>
+<p>[11] T. Palpanas et al. <em>Incremental maintenance for non-distributive aggregate functions</em>. In VLDB 2002, pp. 802-813.</p>
+<p>[12] T. Griffin et al. <em>An improved algorithm for the incremental recomputation of active relational expressions</em>. In TKDE 1997, vol. 9(3) pp. 508-511.</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>物化视图维护的代数方法</p><p><a href="https://shixiaogang.github.io/materialized-views/algebraic-methods/">https://shixiaogang.github.io/materialized-views/algebraic-methods/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>Xiaogang Shi (施晓罡)</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2023-04-05</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2023-04-05</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=642765864f61b7001240a131&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><!--!--><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/sketches/lossy-counting/"><span class="level-item">Lossy Counting频数估计算法</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><script src="https://utteranc.es/client.js" repo="shixiaogang/shixiaogang.github.io" issue-term="pathname" crossorigin="anonymous" async></script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-left flex-shrink-1"><div><figure class="image mx-auto mb-2"><img class="avatar" src="/img/avatar.jpg" alt="Xiaogang Shi (施晓罡)"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">Xiaogang Shi (施晓罡)</p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-envelope mr-1"></i><span>shixiaogangg AT gmail.com</span></p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-map-marker-alt mr-1"></i><span>Beijing, China</span></p><p class="social-links is-size-6 is-flex justify-content-start mt-2"><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Github" href="https://github.com/shixiaogang"><i class="fab fa-github"></i></a><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Linkedin" href="https://www.linkedin.com/in/xiaogang-shi-8467a9a8/"><i class="fab fa-linkedin"></i></a></p></div></div></nav></div></div><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">分类</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="level-start"><span class="level-item">概要算法</span></span><span class="level-end"><span class="level-item tag">3</span></span></a><ul><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="level-start"><span class="level-item">频数估计</span></span><span class="level-end"><span class="level-item tag">3</span></span></a></li></ul></li><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="level-start"><span class="level-item">物化视图</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></div></div></div><div class="card widget" data-type="tags"><div class="card-content"><div class="menu"><h3 class="menu-label">标签</h3><div class="field is-grouped is-grouped-multiline"><div class="control"><a class="tags has-addons" href="/tags/ETL/"><span class="tag">ETL</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%95%B0%E6%8D%AE%E6%B5%81/"><span class="tag">数据流</span><span class="tag">3</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="tag">概要算法</span><span class="tag">3</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="tag">物化视图</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="tag">频数估计</span><span class="tag">3</span></a></div></div></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">订阅更新</h3><form action="https://feedburner.google.com/fb/a/mailverify" method="post" target="popupwindow" onsubmit="window.open(&#039;https://feedburner.google.com/fb/a/mailverify?uri=&#039;,&#039;popupwindow&#039;,&#039;scrollbars=yes,width=550,height=520&#039;);return true"><input type="hidden" value="" name="uri"><input type="hidden" name="loc" value="en_US"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="订阅"></div></div></form></div></div></div><div class="column-right-shadow is-hidden-widescreen"></div></div><div class="column column-right is-4-tablet is-4-desktop is-3-widescreen is-hidden-touch is-hidden-desktop-only order-3"><div class="card widget" id="toc" data-type="toc"><div class="card-content"><div class="menu"><h3 class="menu-label">目录</h3><ul class="menu-list"><li><a class="level is-mobile" href="#研究历史"><span class="level-left"><span class="level-item">1</span><span class="level-item">研究历史</span></span></a></li><li><a class="level is-mobile" href="#视图更新的代数方法"><span class="level-left"><span class="level-item">2</span><span class="level-item">视图更新的代数方法</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#选择-Select"><span class="level-left"><span class="level-item">2.1</span><span class="level-item">选择 (Select)</span></span></a></li><li><a class="level is-mobile" href="#映射-Project"><span class="level-left"><span class="level-item">2.2</span><span class="level-item">映射 (Project)</span></span></a></li><li><a class="level is-mobile" href="#并-Union"><span class="level-left"><span class="level-item">2.3</span><span class="level-item">并 (Union)</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#UNION-ALL"><span class="level-left"><span class="level-item">2.3.1</span><span class="level-item">UNION ALL</span></span></a></li><li><a class="level is-mobile" href="#UNION"><span class="level-left"><span class="level-item">2.3.2</span><span class="level-item">UNION</span></span></a></li></ul></li><li><a class="level is-mobile" href="#交-Intersect"><span class="level-left"><span class="level-item">2.4</span><span class="level-item">交 (Intersect)</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#INTERSECT-ALL"><span class="level-left"><span class="level-item">2.4.1</span><span class="level-item">INTERSECT ALL</span></span></a></li><li><a class="level is-mobile" href="#INTERSECT"><span class="level-left"><span class="level-item">2.4.2</span><span class="level-item">INTERSECT</span></span></a></li></ul></li><li><a class="level is-mobile" href="#差-Minus"><span class="level-left"><span class="level-item">2.5</span><span class="level-item">差 (Minus)</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#MINUS-ALL"><span class="level-left"><span class="level-item">2.5.1</span><span class="level-item">MINUS ALL</span></span></a></li><li><a class="level is-mobile" href="#MINUS"><span class="level-left"><span class="level-item">2.5.2</span><span class="level-item">MINUS</span></span></a></li></ul></li><li><a class="level is-mobile" href="#内连接-Inner-Join"><span class="level-left"><span class="level-item">2.6</span><span class="level-item">内连接 (Inner Join)</span></span></a></li><li><a class="level is-mobile" href="#左外连接-Left-Outer-Join"><span class="level-left"><span class="level-item">2.7</span><span class="level-item">左外连接 (Left Outer Join)</span></span></a></li><li><a class="level is-mobile" href="#全外连接-Full-Outer-Join"><span class="level-left"><span class="level-item">2.8</span><span class="level-item">全外连接 (Full Outer Join)</span></span></a></li><li><a class="level is-mobile" href="#半连接-Semi-Join"><span class="level-left"><span class="level-item">2.9</span><span class="level-item">半连接 (Semi Join)</span></span></a></li><li><a class="level is-mobile" href="#反半连接-Anti-Semi-Join"><span class="level-left"><span class="level-item">2.10</span><span class="level-item">反半连接 (Anti Semi Join)</span></span></a></li></ul></li><li><a class="level is-mobile" href="#Related-Work"><span class="level-left"><span class="level-item">3</span><span class="level-item">Related Work</span></span></a></li></ul></div></div><style>#toc .menu-list > li > a.is-active + .menu-list { display: block; }#toc .menu-list > li > a + .menu-list { display: none; }</style><script src="/js/toc.js" defer></script></div></div></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a><p class="is-size-7"><span>&copy; 2023 Xiaogang Shi (施晓罡)</span>  <span>All rights reserved.</span></p><p class="is-size-7">Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><script type="text/x-mathjax-config">MathJax.Hub.Config({
+            'HTML-CSS': {
+                matchFontHeight: false
+            },
+            SVG: {
+                matchFontHeight: false
+            },
+            CommonHTML: {
+                matchFontHeight: false
+            },
+            tex2jax: {
+                inlineMath: [
+                    ['$','$'],
+                    ['\\(','\\)']
+                ]
+            }
+        });</script><script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
