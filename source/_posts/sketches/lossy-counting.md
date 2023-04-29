@@ -13,14 +13,12 @@ toc: true
 
 
 
-LossyCounting是R. Motwani和G. S. Manku在[1]中提出的另一个频数估计算法（该论文中的另一个算法为 [Sticky Sampling算法](../sticky_sampling)）。
+LossyCounting是R. Motwani和G. S. Manku在[1]中提出的另一个频数估计算法（该论文中的另一个算法为 [Sticky Sampling算法](../sticky-sampling)）。虽然LossyCounting算法在[Misra-Gries算法](../misra-gries)提出之后20年提出，但LossyCounting算法在估计误差上和Misra-Gries算法是一样的，在空间复杂度和计算复杂度上还不如Misra-Gries算法。
 
 LossyCounting算法的对数据项的频数的估计可以满足$0 \le f - \hat{f} \le \epsilon n$，其中$f$为真实频数，$\hat{f}$为估计频数，$n$为所有频数之和；所需的记录数为$\frac{1}{\epsilon}\log(\epsilon n)$。LossyCounting算法也可以对数据流中的频繁项进行估计，并对给定的阈值$s\in(0,1)$满足
 
 * 所有真实频数超过$sn$的数据项都能够被返回。
 * 所有真实频数少于$(s-\epsilon)n$的数据项都不会被返回。
-
-虽然LossyCounting算法在[Misra-Gries算法](../misra_gries)提出之后20年提出，但LossyCounting算法在估计误差上和Misra-Gries算法是一样的，在空间复杂度和计算复杂度上还不如Misra-Gries算法。
 
 
 
