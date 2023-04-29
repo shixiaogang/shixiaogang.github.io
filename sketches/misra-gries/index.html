@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>Misra-Gries频数估计算法 - Xiaogang Shi&#039;s Home</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Xiaogang Shi&#039;s Home"><meta name="msapplication-TileImage" content="/img/favicon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Xiaogang Shi&#039;s Home"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="Misra-Gries算法最早由J. Misra和D. Gries在1982年提出 [1]。Misra-Gries算法可以看成是对Majority算法的一个扩展，可以对数据流中的频数提供相对误差为$\epsilon$的估计，使用的空间复杂度为$\mathrm{O}(1&amp;#x2F;\epsilon)$。"><meta property="og:type" content="blog"><meta property="og:title" content="Misra-Gries频数估计算法"><meta property="og:url" content="https://shixiaogang.github.io/sketches/misra-gries/"><meta property="og:site_name" content="Xiaogang Shi&#039;s Home"><meta property="og:description" content="Misra-Gries算法最早由J. Misra和D. Gries在1982年提出 [1]。Misra-Gries算法可以看成是对Majority算法的一个扩展，可以对数据流中的频数提供相对误差为$\epsilon$的估计，使用的空间复杂度为$\mathrm{O}(1&amp;#x2F;\epsilon)$。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://shixiaogang.github.io/img/og_image.png"><meta property="article:published_time" content="2023-04-29T00:00:00.000Z"><meta property="article:modified_time" content="2023-04-29T00:37:43.923Z"><meta property="article:author" content="Xiaogang Shi (施晓罡)"><meta property="article:tag" content="数据流"><meta property="article:tag" content="概要算法"><meta property="article:tag" content="频数估计"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://shixiaogang.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://shixiaogang.github.io/sketches/misra-gries/"},"headline":"Misra-Gries频数估计算法","image":["https://shixiaogang.github.io/img/og_image.png"],"datePublished":"2023-04-29T00:00:00.000Z","dateModified":"2023-04-29T00:37:43.923Z","author":{"@type":"Person","name":"Xiaogang Shi (施晓罡)"},"publisher":{"@type":"Organization","name":"Xiaogang Shi's Home","logo":{"@type":"ImageObject","url":"https://shixiaogang.github.io/img/logo.png"}},"description":"Misra-Gries算法最早由J. Misra和D. Gries在1982年提出 [1]。Misra-Gries算法可以看成是对Majority算法的一个扩展，可以对数据流中的频数提供相对误差为$\\epsilon$的估计，使用的空间复杂度为$\\mathrm{O}(1&#x2F;\\epsilon)$。"}</script><link rel="canonical" href="https://shixiaogang.github.io/sketches/misra-gries/"><link rel="icon" href="/img/favicon.png"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.3.0"></head><body class="is-3-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Blog</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item is-hidden-tablet catalogue" title="目录" href="javascript:;"><i class="fas fa-list-ul"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-6-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2023-04-29T00:00:00.000Z" title="4/29/2023, 12:00:00 AM">2023-04-29</time>发表</span><span class="level-item">9 分钟读完 (大约1313个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">Misra-Gries频数估计算法</h1><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/%E6%95%B0%E6%8D%AE%E6%B5%81/">数据流</a><a class="link-muted mr-2" rel="tag" href="/tags/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/">概要算法</a><a class="link-muted mr-2" rel="tag" href="/tags/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/">频数估计</a></div><div class="content"><p>Misra-Gries算法最早由J. Misra和D. Gries在1982年提出 [1]。Misra-Gries算法可以看成是对Majority算法的一个扩展，可以对数据流中的频数提供相对误差为$\epsilon$的估计，使用的空间复杂度为$\mathrm{O}(1&#x2F;\epsilon)$。</p>
+<p>到了2000年左右，随着对数据流研究的再次兴起，[2] 和 [3] 又重新提出了类似的算法来用于频数估计。和原始论文不同，[2] 使用了哈希表而非平衡搜索树来保证频繁项。[3] 则通过多个链表来提高清理记录时的效率，使其在最坏情况下仍然可以保证$O(1)$的开销。</p>
+<p>原始论文侧重于频繁项的估计，并没有对频数估计的误差进行分析。[4] 证明了当$k &#x3D; 1&#x2F;\epsilon$时，频数估计的相对误差为$\epsilon$。[5] 则表明Misra-Gries算法的估计误差仅取决于那些长尾的数据项。考虑到真实环境中的数据分布通常是倾斜的（如zipf分布），这个结论可以进一步提高收紧了估计误差的边界。</p>
+<p>[5] 进一步扩展了Misra-Gries算法，使其可以支持记录有不同权重的场景。[6] 则优化了权重更新场景下更新和合并的效率。[5] 还提供了Misra-Gries算法的合并操作，而 [7] 则对合并的空间复杂度提供了更强的边界。[7] 同时也证明了Misra-Gries算法本质上是和SpaceSaving算法等价的。</p>
+<h2 id="算法实现"><a href="#算法实现" class="headerlink" title="算法实现"></a>算法实现</h2><p>我们在Misra-Gries算法中维护了一组记录$(e, f)$，其中$e$是数据流中的数据项，$f$是对$e$的频数估计。我们将这组记录记为$\mathcal{D}$。</p>
+<p>Misra-Gries算法的更新算法如下所示。当一个新元素$i$到达时，我们首先检查其是否已经在$\mathcal{D}$中存在。如果已经存在的话，那么我们直接将其对应的频数$f_i$加1；否则，我们在$\mathcal{D}$中添加一个新记录$(e, 1)$。如果$\mathcal{D}$中记录的数目超过了设定的阈值$k$，那么我们就需要对$\mathcal{D}$进行清理。我们去除当前$\mathcal{D}$中所有频数的最小值$f_m$，并将所有频数都减去$f_m$。如果一个数据项的频数变为$0$，那么我们就将其从$\mathcal{D}$中删除。</p>
+<div class="listing"><div class="listing-title"><div class="level-left"><strong>Misra-Gries算法更新操作</strong></div></div><div class="listing-body"><table><tbody><tr><td class="gutter">0</td><td class="code"><p>if $i \in \mathcal{D}$, then</p>
+</td></tr><tr><td class="gutter">1</td><td class="code"><p>   $f_i \gets f_i + 1$</p>
+</td></tr><tr><td class="gutter">2</td><td class="code"><p>else </p>
+</td></tr><tr><td class="gutter">3</td><td class="code"><p>​    $\mathcal{D} \gets \mathcal{D} \cup \{i\}$</p>
+</td></tr><tr><td class="gutter">4</td><td class="code"><p>​    $f_m &#x3D; \min \{ f_e | e \in \mathcal{D} \}$</p>
+</td></tr><tr><td class="gutter">5</td><td class="code"><p>​    for all $j \in \mathcal{D}$</p>
+</td></tr><tr><td class="gutter">6</td><td class="code"><p>​        $f_j \gets f_j - f_m$</p>
+</td></tr><tr><td class="gutter">7</td><td class="code"><p>​        if $f_j &#x3D; 0$, then</p>
+</td></tr><tr><td class="gutter">8</td><td class="code"><p>​            $\mathcal{D} \gets \mathcal{D} - \{j \}$</p>
+</td></tr><tr><td class="gutter">9</td><td class="code"><p>​        end if</p>
+</td></tr><tr><td class="gutter">10</td><td class="code"><p>​    end for</p>
+</td></tr><tr><td class="gutter">11</td><td class="code"><p>end if</p>
+</td></tr></tbody></table></div></div>
+
+
+
+<p>Misra-Gries算法的查询操作如下所示。当我们需要查询某个数据项的频数时，如果这个数据项存在于$\mathcal{D}$中，我们就返回其在$\mathcal{D}$中对应的频数；否则，我们直接返回$0$。</p>
+<div class="listing"><div class="listing-title"><div class="level-left"><strong>Misra-Gries算法查询操作</strong></div></div><div class="listing-body"><table><tbody><tr><td class="gutter">0</td><td class="code"><p>if $e \in \mathcal{D}$</p>
+</td></tr><tr><td class="gutter">1</td><td class="code"><p>​    return $f_e$</p>
+</td></tr><tr><td class="gutter">2</td><td class="code"><p>else</p>
+</td></tr><tr><td class="gutter">3</td><td class="code"><p>​    return $0$</p>
+</td></tr><tr><td class="gutter">4</td><td class="code"><p>end if</p>
+</td></tr></tbody></table></div></div>
+
+
+
+<p>Misra-Gries算法也支持合并操作。在合并时，我们任意选择一个频繁集来作为基础，然后再将另一个频繁集中的记录逐个添加进去。Misra-Gries算法的合并操作如下所示：</p>
+<div class="listing"><div class="listing-title"><div class="level-left"><strong>Misra-Gries算法合并操作</strong></div></div><div class="listing-body"><table><tbody><tr><td class="gutter">0</td><td class="code"><p>$\mathcal{D} \gets \mathcal{D}_a$</p>
+</td></tr><tr><td class="gutter">1</td><td class="code"><p>for all $i \in \mathcal{D}_b$</p>
+</td></tr><tr><td class="gutter">2</td><td class="code"><p>​    if $i \in \mathcal{D}$, then</p>
+</td></tr><tr><td class="gutter">3</td><td class="code"><p>​        $f_i \gets f_i + f_{i, b}$</p>
+</td></tr><tr><td class="gutter">4</td><td class="code"><p>​    else</p>
+</td></tr><tr><td class="gutter">5</td><td class="code"><p>​        $\mathcal{D} \gets \mathcal{D} \cup \{i \}$</p>
+</td></tr><tr><td class="gutter">6</td><td class="code"><p>​        $f_i \gets f_{i, b}$</p>
+</td></tr><tr><td class="gutter">7</td><td class="code"><p>​    end if</p>
+</td></tr><tr><td class="gutter">8</td><td class="code"><p>​    if $|\mathcal{D}| &gt; k$, then</p>
+</td></tr><tr><td class="gutter">9</td><td class="code"><p>​        $f_m \gets \min \{ f_e | e \in \mathcal{D} \}$</p>
+</td></tr><tr><td class="gutter">10</td><td class="code"><p>​        for all $j \in \mathcal{D}$</p>
+</td></tr><tr><td class="gutter">11</td><td class="code"><p>​            $f_j \gets f_j - f_m$</p>
+</td></tr><tr><td class="gutter">12</td><td class="code"><p>​            if $f_j &#x3D; 0$, then</p>
+</td></tr><tr><td class="gutter">13</td><td class="code"><p>​                $\mathcal{D} \gets \mathcal{D} - \{j\}$</p>
+</td></tr><tr><td class="gutter">14</td><td class="code"><p>​            end if</p>
+</td></tr><tr><td class="gutter">15</td><td class="code"><p>​        end for</p>
+</td></tr><tr><td class="gutter">16</td><td class="code"><p>​    end if</p>
+</td></tr><tr><td class="gutter">17</td><td class="code"><p>end for</p>
+</td></tr></tbody></table></div></div>
+
+
+
+<h2 id="算法分析"><a href="#算法分析" class="headerlink" title="算法分析"></a>算法分析</h2><p><strong>定理</strong>. Misra-Gries算法对真实频数$f$提供的估计$\hat{f}$满足</p>
+<p>$$ 0 \le f - \hat{f} \le \epsilon n $$</p>
+<p>其中$n$为所有数据项的频数之和。此时所需的空间复杂度为$\mathrm{O}(1&#x2F;\epsilon)$。</p>
+<p><strong>证明</strong>. 令$n$为数据流中已经出现的记录数目，$n’$为保存在$\mathcal{D}$中所有频数的和。</p>
+<p>我们对于频数估计的误差来自于我们对$\mathcal{D}$的清理操作。每次清理时，我们会将$\mathcal{D}$中的记录都减去一个相同的值。因此在整个计算过程中，受到影响的数据项数目一定大于等于$k$。因此，我们有</p>
+<p>$$ 0 \le f - \hat{f} \le \frac{n - n’}{k} \le \frac{n}{k} $$</p>
+<p>令$k &#x3D; 1&#x2F;\epsilon$，则</p>
+<p>$$0 \le f - \hat{f} \le \epsilon n$$</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><p>[1] J. Misra, D. Gries. Finding repeated elements. In Science of Computer Programming 1982, vol. 2(2), pp. 143-152.</p>
+<p>[2] E. Demaine et al. Frequency estimation of internet packet streams with limited space. In ESA 2002, pp. 348-360.</p>
+<p>[3] R. Karp et al. A simple algorithm for finding frequent elements in streams and bags. In TODS 2003, vol. 28(1), pp. 51-55.</p>
+<p>[4] P. Bose et al. Bounds for frequency estimation of packet streams. In SIROCCO 2003.</p>
+<p>[5] R. Berinde et al. Space-optimal heavy hitters with strong error bounds. In PODS 2009, pp. 157-166.</p>
+<p>[6] D. Anderson et al. A high-performance algorithm for identifying frequent items in data streams. In IMC 2017, pp. 268-282.</p>
+<p>[7] P. Agarwal et al. Mergeable summaries. In PODS 2012, pp. 23-34. </p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>Misra-Gries频数估计算法</p><p><a href="https://shixiaogang.github.io/sketches/misra-gries/">https://shixiaogang.github.io/sketches/misra-gries/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>Xiaogang Shi (施晓罡)</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2023-04-29</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2023-04-29</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=642765864f61b7001240a131&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><!--!--><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/materialized-views/algebraic-methods/"><span class="level-item">物化视图维护的代数方法</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><script src="https://utteranc.es/client.js" repo="shixiaogang/shixiaogang.github.io" issue-term="pathname" crossorigin="anonymous" async></script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-left flex-shrink-1"><div><figure class="image mx-auto mb-2"><img class="avatar" src="/img/avatar.jpg" alt="Xiaogang Shi (施晓罡)"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">Xiaogang Shi (施晓罡)</p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-envelope mr-1"></i><span>shixiaogangg AT gmail.com</span></p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-map-marker-alt mr-1"></i><span>Beijing, China</span></p><p class="social-links is-size-6 is-flex justify-content-start mt-2"><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Github" href="https://github.com/shixiaogang"><i class="fab fa-github"></i></a><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Linkedin" href="https://www.linkedin.com/in/xiaogang-shi-8467a9a8/"><i class="fab fa-linkedin"></i></a></p></div></div></nav></div></div><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">分类</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="level-start"><span class="level-item">概要算法</span></span><span class="level-end"><span class="level-item tag">4</span></span></a><ul><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="level-start"><span class="level-item">频数估计</span></span><span class="level-end"><span class="level-item tag">4</span></span></a></li></ul></li><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="level-start"><span class="level-item">物化视图</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></div></div></div><div class="card widget" data-type="tags"><div class="card-content"><div class="menu"><h3 class="menu-label">标签</h3><div class="field is-grouped is-grouped-multiline"><div class="control"><a class="tags has-addons" href="/tags/ETL/"><span class="tag">ETL</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%95%B0%E6%8D%AE%E6%B5%81/"><span class="tag">数据流</span><span class="tag">4</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="tag">概要算法</span><span class="tag">4</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="tag">物化视图</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="tag">频数估计</span><span class="tag">4</span></a></div></div></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">订阅更新</h3><form action="https://feedburner.google.com/fb/a/mailverify" method="post" target="popupwindow" onsubmit="window.open(&#039;https://feedburner.google.com/fb/a/mailverify?uri=&#039;,&#039;popupwindow&#039;,&#039;scrollbars=yes,width=550,height=520&#039;);return true"><input type="hidden" value="" name="uri"><input type="hidden" name="loc" value="en_US"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="订阅"></div></div></form></div></div></div><div class="column-right-shadow is-hidden-widescreen"></div></div><div class="column column-right is-4-tablet is-4-desktop is-3-widescreen is-hidden-touch is-hidden-desktop-only order-3"><div class="card widget" id="toc" data-type="toc"><div class="card-content"><div class="menu"><h3 class="menu-label">目录</h3><ul class="menu-list"><li><a class="level is-mobile" href="#算法实现"><span class="level-left"><span class="level-item">1</span><span class="level-item">算法实现</span></span></a></li><li><a class="level is-mobile" href="#算法分析"><span class="level-left"><span class="level-item">2</span><span class="level-item">算法分析</span></span></a></li><li><a class="level is-mobile" href="#参考文献"><span class="level-left"><span class="level-item">3</span><span class="level-item">参考文献</span></span></a></li></ul></div></div><style>#toc .menu-list > li > a.is-active + .menu-list { display: block; }#toc .menu-list > li > a + .menu-list { display: none; }</style><script src="/js/toc.js" defer></script></div></div></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a><p class="is-size-7"><span>&copy; 2023 Xiaogang Shi (施晓罡)</span>  <span>All rights reserved.</span></p><p class="is-size-7">Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><script type="text/x-mathjax-config">MathJax.Hub.Config({
+            'HTML-CSS': {
+                matchFontHeight: false
+            },
+            SVG: {
+                matchFontHeight: false
+            },
+            CommonHTML: {
+                matchFontHeight: false
+            },
+            tex2jax: {
+                inlineMath: [
+                    ['$','$'],
+                    ['\\(','\\)']
+                ]
+            }
+        });</script><script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
