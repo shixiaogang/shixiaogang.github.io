@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://shixiaogang.github.io/sitemap.xml
-Sitemap: https://shixiaogang.github.io/baidusitemap.xml
+Sitemap: https://shixiaogang.com/sitemap.xml
+Sitemap: https://shixiaogang.com/baidusitemap.xml
