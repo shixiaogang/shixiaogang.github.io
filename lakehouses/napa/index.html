@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>Napa: Powering scalable data warehousing with robust query performance at Google - Xiaogang Shi&#039;s Home</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Xiaogang Shi&#039;s Home"><meta name="msapplication-TileImage" content="/img/favicon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Xiaogang Shi&#039;s Home"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="Napa [1] 是Google内部由于取代Mesa的下一代数据分析系统。相比于Mesa，Napa提供了更加便捷的配置方式来满足用户在数据时效性、查询延迟和资源开销这三方面不同的选择，通过查询时间戳提供了更好的数据一致性；并且支持SQL定义的视图和索引。"><meta property="og:type" content="blog"><meta property="og:title" content="Napa: Powering scalable data warehousing with robust query performance at Google"><meta property="og:url" content="https://shixiaogang.com/lakehouses/napa/"><meta property="og:site_name" content="Xiaogang Shi&#039;s Home"><meta property="og:description" content="Napa [1] 是Google内部由于取代Mesa的下一代数据分析系统。相比于Mesa，Napa提供了更加便捷的配置方式来满足用户在数据时效性、查询延迟和资源开销这三方面不同的选择，通过查询时间戳提供了更好的数据一致性；并且支持SQL定义的视图和索引。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://shixiaogang.com/img/og_image.png"><meta property="article:published_time" content="2023-05-15T00:00:00.000Z"><meta property="article:modified_time" content="2023-05-16T02:48:20.740Z"><meta property="article:author" content="Xiaogang Shi (施晓罡)"><meta property="article:tag" content="数据湖仓"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://shixiaogang.com/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://shixiaogang.com/lakehouses/napa/"},"headline":"Napa: Powering scalable data warehousing with robust query performance at Google","image":["https://shixiaogang.com/img/og_image.png"],"datePublished":"2023-05-15T00:00:00.000Z","dateModified":"2023-05-16T02:48:20.740Z","author":{"@type":"Person","name":"Xiaogang Shi (施晓罡)"},"publisher":{"@type":"Organization","name":"Xiaogang Shi's Home","logo":{"@type":"ImageObject","url":"https://shixiaogang.com/img/logo.png"}},"description":"Napa [1] 是Google内部由于取代Mesa的下一代数据分析系统。相比于Mesa，Napa提供了更加便捷的配置方式来满足用户在数据时效性、查询延迟和资源开销这三方面不同的选择，通过查询时间戳提供了更好的数据一致性；并且支持SQL定义的视图和索引。"}</script><link rel="canonical" href="https://shixiaogang.com/lakehouses/napa/"><link rel="icon" href="/img/favicon.png"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.3.0"></head><body class="is-3-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Blog</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item is-hidden-tablet catalogue" title="目录" href="javascript:;"><i class="fas fa-list-ul"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-6-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2023-05-15T00:00:00.000Z" title="5/15/2023, 12:00:00 AM">2023-05-15</time>发表</span><span class="level-item">33 分钟读完 (大约4994个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">Napa: Powering scalable data warehousing with robust query performance at Google</h1><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/%E6%95%B0%E6%8D%AE%E6%B9%96%E4%BB%93/">数据湖仓</a></div><div class="content"><p>Napa [1] 是Google内部由于取代Mesa的下一代数据分析系统。相比于Mesa，Napa提供了更加便捷的配置方式来满足用户在数据时效性、查询延迟和资源开销这三方面不同的选择，通过查询时间戳提供了更好的数据一致性；并且支持SQL定义的视图和索引。</p>
+<p>Napa据称是在F1 Lightning [2] 的基础上对视图维护和数据查询的能力进行了优化。由于Napa的论文在数据写入和合并等部分上没有太多深入的介绍，这里会参考F1 Lightning论文中对应的内容来推测Napa的实现。不过Napa这篇论文并没有引用F1 Lightning，也没有介绍和F1 Lightning之间的关系。</p>
+<h2 id="用户接口"><a href="#用户接口" class="headerlink" title="用户接口"></a>用户接口</h2><p>和关系数据库类似，Napa将数据组织成一系列的关系表，并将这些表组织成一系列的库。用户可以通过DDL创建库和表，并定义这些表对应的字段信息。此外，用户还可以为每个表创建对应的物化视图和索引。</p>
+<p>Napa的数据来源主要是关系数据库，将关系数据库的数据复制到对应的表中。关系数据库的拥有者既可以按照表粒度，也可以按照库粒度来对数据进行复制。Google内部的关系数据库F1 DB和Spanner都支持使用时间戳快照。所有对数据的更新都会被复制到Napa中，并保留原始的提交时间戳。Napa保证在特定时间戳版本上的查询结果，和在关系数据库中相同时间戳版本上的查询结果，是完全一致的。</p>
+<p>Napa使用F1 Query来进行数据查询，视图创建和视图维护等。F1 Query同时支持流处理和批处理，因此我们可以使用同一个系统同时进行交互式查询和大规模数据的处理。</p>
+<p>为了保证数据的查询性能，Napa会对复制的数据进行一系列的加工，包括数据转换、数据合并和视图维护等。因此从事务在关系数据库中被提交到这些事务的更新反映到最终的查询结果中，会有一定的数据延迟。Napa使用<em>查询时间戳（Query Timestamp）</em>来表示当前系统数据导入和加工的进度。如果一个表的查询时间戳为$X$，那么意味着所有在时间$X$之前导入到Napa的数据都已经可以被查询，而所有在$X$之后导入的数据则不会反映在查询结果中。此时，这个表的数据延迟即为$\text{Now}() - X$，其中$\text{Now}()$表示当前实际的时钟时间。当在时间$Y - X$中导入的数据已经加工优化完成之后，这个表的查询时间戳就可以从$X$更新为$Y$。而对于数据库而言，一个数据库的查询时间戳即为这个数据库中所有表的查询时间戳的最小值。<strong>Napa论文中没有说明这里的查询时间戳是时钟时间还是事件时间。如果为了保证Napa和关系数据库在查询语义上的一致性，那么这里的查询时间戳需要为事件时间。</strong></p>
+<p>用户可以为Napa中的数据设置一定的保留时间。一个表的保留时间戳即为这个表保留的最老的版本。保留时间戳和查询时间戳之间的时间范围称为查询窗口，用户可以在这个窗口内对表的任意快照进行查询。根据Lightning论文的介绍，谷歌内部的查询窗口的大小通常为10个小时。</p>
+<p>数据的加工虽然会为下游的查询带来更好的性能，但在相同的资源开销下也意味着会有更大的数据延迟。Napa允许用户根据预期的查询性能、数据延迟和成本来进行配置。这些配置之后可以转化成内部的系统配置，如物化视图的数目、处理任务的配额、可以保留的Delta数目等。如果用户希望以较低的成本获得较好的查询性能，Napa会优先使用较少的机器资源来构建充分的视图并进行维护，但此时用户就需要忍受较大的数据延迟。</p>
+<h2 id="系统架构"><a href="#系统架构" class="headerlink" title="系统架构"></a>系统架构</h2><h3 id="数据存储"><a href="#数据存储" class="headerlink" title="数据存储"></a>数据存储</h3><p>Napa中的表、索引和视图在物理上是一致的。这些数据会根据主键划分成一组分区（partition），而每个分区在本质上都是一个LSM树。我们将这个LSM树的每部分称为一个Delta，里面保存了一段连续时间内对这个分区数据的更新。</p>
+<p>Delta中的更新记录被称为<em>部分行版本（Partial Row Version）</em>。每个部分行版本都由对应行的主键以及一个时间戳唯一标识。这个时间戳即为这个更新在关系数据库中对应事务提交的时间。此外，每个部分行版本还包含了这行的内容以及对这行进行的更新动作。</p>
+<p>Napa的数据都被存储在Colossus上。在磁盘上，Delta文件按照读优化的列存格式进行存储。Napa构建一个抽象的公共接口来支持多种不同的存储格式。在其中最常用的一种数据格式中，每个Delta文件被分为数据和索引两部分。其中数据分布使用PAX格式来存储部分行版本，而索引部分则保存了一个稀疏的B树所有，用来记录每个主键在PAX中对应row bundle的位置。</p>
+<p>当一个表初始化时，Napa会运行一个离线任务来生成这个表的划分策略，并从关系数据库中全量拉取读取每个分区对应的数据来创建一个初始的Delta。Napa会定期对已有的数据进行重新划分来保障负载均衡。Napa重新划分数据的过程和HBase十分类似，不会对数据进行重新读写，而只会对元数据进行修改。</p>
+<h3 id="元数据存储"><a href="#元数据存储" class="headerlink" title="元数据存储"></a>元数据存储</h3><p>数据存储的状态和其他需要事务语义的元数据都被存储在Spanner这样的数据库中。</p>
+<p>Napa使用了一个两层结构来存储数据的schema信息</p>
+<ul>
+<li>第一层是逻辑schema，包含了protobuf和GoogleSQL结构等复杂数据类型，以及其他一些能够在逻辑上映射到整型数的类型，如日期和枚举类型等。</li>
+<li>第二层是物理schema。对于每个逻辑schema，Napa会生成一个或多个物理schema。这些物理schema中只会报客户一些基础的数据类型，如整型数、浮点数和字符串等。</li>
+</ul>
+<p>逻辑schema和物理schema会通过逻辑映射连接。这个映射指定了如何将逻辑行转换成物理行，以及如何将物理行转换成逻辑行。通过schema映射我们可以为同一个逻辑数据提供不同的物理存储格式。例如在存储Protobuf类型时，我们可以将数据存储为一个序列化的字节流，也可以将其字段分解为单独的列。前者更适合读取大部分或者所有字段的查询，而后者更适合只读取几个字段的查询。在不同的场景下，我们可以通过schema映射选择更合适的方案。schema映射另一个优势是，可以帮助我们更高效地支持那些只需要修改元数据的schema升级。</p>
+<p>一些schema升级可以只需要修改元数据，而不需要修改之前使用旧schema写入的Delta文件。例如我们为表添加新列的时候，我们可以在读取这些旧Delta文件时为新的列生成默认值借。当遇到这些只需要修改元数据的schema升级时，Napa会创建一个新的逻辑schema。在schema变更之后的Delta文件会使用新的物理schema写入数据。而对于旧的Delta文件，Napa会分析老的逻辑schema和新的逻辑schema之间的区别，创建一个schema变更的逻辑映射。这个逻辑映射会确定Napa如果将之前旧数据如何转换成新的逻辑schema。</p>
+<p>随着时间的推移，一个表中可能存在许多schema升级，因而也会保存大量的schema变动的逻辑映射。在读取时执行schema的变更会带来一定的性能开销。为了减少这部分开销，Napa定期会在compaction过程中对旧数据进行转换，使用新的schema来保存。</p>
+<p>而如果schema升级需要修改数据，而无法只修改元数据的话，那么Napa会调用后台的任务来对旧数据进行转换和改写。</p>
+<h3 id="Delta-Server"><a href="#Delta-Server" class="headerlink" title="Delta Server"></a>Delta Server</h3><p>Napa中数据的写入、合并和查询服务都由DeltaServer提供支持。每个Server会负责一个或者多个partition，而每个partition的数据会写入到多个server上并对外提供查询服务。但在任意时刻，只有一个server会将partition写入的新数据flush到磁盘上。</p>
+<h2 id="数据导入"><a href="#数据导入" class="headerlink" title="数据导入"></a>数据导入</h2><p>当关系数据库中的变更被导入时，其对应的部分行版本会写被写入到一个内存中的B树。和C-Store或者$C_0$ LSM树这些写优化的存储类似，这种方式允许以读取效率为代价获取更好的更新效率。在Lightning论文中提到，这些数据一旦被写入到内存中，就可以对外提供服务；而在Napa论文中，这些写入内存的数据无法立即对外查询，而需要在进行合并之后才可以对外提供服务。</p>
+<p>当内存中Delta大小超过限制，或者Server内存压力太大时，Napa会将这些内存中的Delta写到磁盘上。此时我们会将行存的内存数据转成更适合查询的列存格式。如果在转换时，仍然有查询在访问内存数据，那么这些内存数据仍会被保留直到这些查询执行完成。当内存数据被完全写到磁盘之后，之后的查询就会从磁盘上读取这些数据。</p>
+<p>在导入时，一份数据会被写入到多个Server上。这些Server会同时对外提供查询。但这些Server中只有一个会将内存中的Delta转成列存格式写到磁盘上。当这个Server将数据写入磁盘之后，会通知拥有这份数据的其他Server更新他们的数据。</p>
+<p>当Server中的内存数据丢失时，Server会从上游的CDC回放这些数据来重建。为了避免在故障恢复之后需要回放太多的数据，Server也会定期的将内存中的数据备份到磁盘上。这些数据的备份和写入是不同的。在备份时，我们不会进行格式的转化，而是直接将内存中的格式写入到磁盘上。</p>
+<h2 id="数据维护"><a href="#数据维护" class="headerlink" title="数据维护"></a>数据维护</h2><p>数据的维护包括了两部分，一部分是在对表的不同Delta进行合并；第二个部分是基于输入表的更新来对索引和视图表进行维护。Napa的控制台会调度数据合并和视图维护的任务来保证一个表的delta数目符合配置的要求。</p>
+<h3 id="数据合并"><a href="#数据合并" class="headerlink" title="数据合并"></a>数据合并</h3><p>由于每个Delta文件内部的记录都是排序的，因此compaction的本质上就是合并排序。</p>
+<p>Napa内部的compaction分为四类</p>
+<ul>
+<li>Active compaction：对内存中的Delta进行compaction</li>
+<li>Minor compaction：对磁盘上较新的较小的Delta进行compaction</li>
+<li>Major compaction：对磁盘上较老的更大的Delta进行compaction</li>
+<li>Base compaction：生成对应时间戳的一个完整的数据快照</li>
+</ul>
+<p>为了能够跟上Delta写入的速度，Napa设计了一个基于大小的compaction策略。Napa使用了两种不同的compaction任务类型，即Minor compaction和Major compaction。Minor compaction负责压缩小的和更新的delta，而major compaction负责合并大的和旧的delta。当Napa为compaction选择合并的delta时，会使用参与compaction的delta的大小作为标准，从一个较小的阈值开始，指数级的增加这个阈值，知道可以找到两个或多个符合要求的delta。这可以使Napa可以快速减少小delta的数量，同时避免在连续的compaction任务中重复重写大量数据。</p>
+<p>在上面四种compaction任务中，只有active compaction是在Server上完成，而其他三类compaction都在专门的worker上执行。这样这些compaction任务就不会与Server上的读取操作和其他关键任务争抢资源。当compaction任务完成之后，Server会异步加载最新的Delta，替换掉被合并的Delta。</p>
+<h3 id="索引和视图的维护"><a href="#索引和视图的维护" class="headerlink" title="索引和视图的维护"></a>索引和视图的维护</h3><p>在Napa中，Server可以通过订阅Changepump这样的CDC服务来获得基础表的更新。而索引和视图这些派生表的更新，则需要订阅维护这些输入表的Server。每当基础表发生更改时，维护这些基础表的Server就会为每个派生表计算和发送对应的更新。</p>
+<p>由于派生表的主键和基础表的主键并不一致，一个基础表分区的更新可能会导致多个派生表分区的更新，而一个派生表分区可能需要订阅多个基础表分区。为了基础表和派生表之间的shuffle问题，Napa使用BigTable来作为shuffle的存储。维护基础表的Server会将派生表的更新写入到BigTable中。这些更新在BigTable中会按照对应主键的顺序进行排列。维护派生表的Server则会扫描BigTable中对应的主键分区来读取属于自己的更新。</p>
+<p>派生表的维护中也会出现数据倾斜的问题。当基础表中大部分的更新在转换之后，可能只会导致派生表一小部分的更新。此时，维护这些派生表分区的Server就会由于负载过大而导致处理性能不足。Napa会随时监控系统中的数据倾斜并重新划分数据。此外，Napa在查询时也会通过慢节点规避的方式来避免查询性能受到影响。</p>
+<p>在索引和视图的维护中，一个有效的优化就是尽量保护数据已有的排序和分区特性，避免在维护过程中重新计算。例如，如果基础表已经是按照列(A, B, C)进行排序，而如果派生表按照(A, B)拍序，那么我们就可以将基础表按照(A, B)进行分组，在分组内进行派生表的计算。</p>
+<h2 id="数据查询"><a href="#数据查询" class="headerlink" title="数据查询"></a>数据查询</h2><h3 id="数据合并-1"><a href="#数据合并-1" class="headerlink" title="数据合并"></a>数据合并</h3><p>Napa在查询时需要根据用户指定的时间戳读取对应的版本。但这些版本可能分散在多个Delta文件中，因此在读取数据时需要将多个Delta文件进行合并来获得完整的数据。</p>
+<p>Napa在查询时进行的数据合并和compaction是十分类似的，但不同的是合并相比于compaction读取的文件会更少一点。我们在枚举需要参与合并的Delta文件时，会通过主键上的谓词对Delta文件进行过滤，忽略那些与谓词没有匹配的Delta文件。</p>
+<h3 id="查询优化"><a href="#查询优化" class="headerlink" title="查询优化"></a>查询优化</h3><p>为了提供查询的稳定性，Napa做了大量的工程实现上的优化。这些工作主要思想都是提高关键路径上的IO效率。</p>
+<ul>
+<li>在任何可能的情况下，F1会优先使用视图表而非基础表来执行查询</li>
+<li>当F1的节点从Napa中读取数据时，会尽量将过滤和聚合下推到Napa中。Napa维护了一个稀疏的B树索引，可以利用这些索引快速确定和过滤筛选查询所需的数据所在的Server。</li>
+<li>一般的数据分析系统会按照主键范围来对查询进行拆分。如果我们有N个子查询，M个Delta文件，那么每个子查询都要读取这M个Delta文件。Napa为了减少不必要的IO，会让每个DeltaServer处理一个Delta文件，这样查询执行时所读取的IO数目就会大大减少。</li>
+<li>Napa对元数据进行了缓存，确保在查询执行过程中所有的元数据都可以直接从内存中访问，而不会从持久化存储上读取。</li>
+<li>Napa也使用了一个透明的分布式缓存层来对数据进行了缓存。这个数据缓存是读穿透的，即所有的查询会先从缓存读取数据。当读取不到数据时，Napa会从Colossus加载数据到缓存之后，再从缓存返回数据。此外，Napa也会运行后台和在线的预加载来进一步减少在查询执行时等待时间。</li>
+<li>Napa会监控执行过程中的慢节点，通过备份的方式规避慢节点导致的问题。</li>
+</ul>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>从整体架构上看，Napa有点类似于一个高级的支持SQL查询的HBase。但Napa最大的亮点在于通过简单的配置来满足用户在数据时效性、查询延迟和成本上的选择。这种配置方式具有极大的灵活度，能够为不同的数据分析场景提供统一的解决方案。</p>
+<p>满足这个目标的一个重要前提是对数据的加工和查询能够提供稳定可预测的运行。但在分布式环境下对实时更新的数据提供这样的保障是十分具有挑战的。Napa在工程实现上做了许多工作来应付这些挑战，包括解决数据导入和维护过程中的数据倾斜、提高查询稳定性等。</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><p>[1] A. Agiwal et al. Napa: Powering scalable data warehousing with robust query performance at Google. In VLDB 2021, vol. 14(12), pp. 2986-2997.</p>
+<p>[2] J. Yang et al. F1 Lightning: HTAP as a Service. In VLDB 2020, vol. 13(12), pp. 3313-3325.</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>Napa: Powering scalable data warehousing with robust query performance at Google</p><p><a href="https://shixiaogang.com/lakehouses/napa/">https://shixiaogang.com/lakehouses/napa/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>Xiaogang Shi (施晓罡)</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2023-05-15</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2023-05-16</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=642765864f61b7001240a131&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><!--!--><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/lakehouses/procella/"><span class="level-item">Procella: Unifying serving and analytical data at Youtube</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><script src="https://utteranc.es/client.js" repo="shixiaogang/shixiaogang.github.io" issue-term="pathname" crossorigin="anonymous" async></script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-left flex-shrink-1"><div><figure class="image mx-auto mb-2"><img class="avatar" src="/img/avatar.jpg" alt="Xiaogang Shi (施晓罡)"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">Xiaogang Shi (施晓罡)</p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-envelope mr-1"></i><span>shixiaogangg AT gmail.com</span></p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-map-marker-alt mr-1"></i><span>Beijing, China</span></p><p class="social-links is-size-6 is-flex justify-content-start mt-2"><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Github" href="https://github.com/shixiaogang"><i class="fab fa-github"></i></a><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Linkedin" href="https://www.linkedin.com/in/xiaogang-shi-8467a9a8/"><i class="fab fa-linkedin"></i></a></p></div></div></nav></div></div><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">分类</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/%E6%95%B0%E6%8D%AE%E6%B9%96%E4%BB%93/"><span class="level-start"><span class="level-item">数据湖仓</span></span><span class="level-end"><span class="level-item tag">2</span></span></a></li><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="level-start"><span class="level-item">概要算法</span></span><span class="level-end"><span class="level-item tag">4</span></span></a><ul><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="level-start"><span class="level-item">频数估计</span></span><span class="level-end"><span class="level-item tag">4</span></span></a></li></ul></li><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="level-start"><span class="level-item">物化视图</span></span><span class="level-end"><span class="level-item tag">1</span></span></a><ul><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/%E7%BB%B4%E6%8A%A4%E6%96%B9%E6%B3%95/"><span class="level-start"><span class="level-item">维护方法</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></li></ul></div></div></div><div class="card widget" data-type="tags"><div class="card-content"><div class="menu"><h3 class="menu-label">标签</h3><div class="field is-grouped is-grouped-multiline"><div class="control"><a class="tags has-addons" href="/tags/ETL/"><span class="tag">ETL</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%95%B0%E6%8D%AE%E6%B5%81/"><span class="tag">数据流</span><span class="tag">4</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%95%B0%E6%8D%AE%E6%B9%96%E4%BB%93/"><span class="tag">数据湖仓</span><span class="tag">2</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="tag">概要算法</span><span class="tag">4</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="tag">物化视图</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="tag">频数估计</span><span class="tag">4</span></a></div></div></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">订阅更新</h3><form action="https://feedburner.google.com/fb/a/mailverify" method="post" target="popupwindow" onsubmit="window.open(&#039;https://feedburner.google.com/fb/a/mailverify?uri=&#039;,&#039;popupwindow&#039;,&#039;scrollbars=yes,width=550,height=520&#039;);return true"><input type="hidden" value="" name="uri"><input type="hidden" name="loc" value="en_US"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="订阅"></div></div></form></div></div></div><div class="column-right-shadow is-hidden-widescreen"></div></div><div class="column column-right is-4-tablet is-4-desktop is-3-widescreen is-hidden-touch is-hidden-desktop-only order-3"><div class="card widget" id="toc" data-type="toc"><div class="card-content"><div class="menu"><h3 class="menu-label">目录</h3><ul class="menu-list"><li><a class="level is-mobile" href="#用户接口"><span class="level-left"><span class="level-item">1</span><span class="level-item">用户接口</span></span></a></li><li><a class="level is-mobile" href="#系统架构"><span class="level-left"><span class="level-item">2</span><span class="level-item">系统架构</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#数据存储"><span class="level-left"><span class="level-item">2.1</span><span class="level-item">数据存储</span></span></a></li><li><a class="level is-mobile" href="#元数据存储"><span class="level-left"><span class="level-item">2.2</span><span class="level-item">元数据存储</span></span></a></li><li><a class="level is-mobile" href="#Delta-Server"><span class="level-left"><span class="level-item">2.3</span><span class="level-item">Delta Server</span></span></a></li></ul></li><li><a class="level is-mobile" href="#数据导入"><span class="level-left"><span class="level-item">3</span><span class="level-item">数据导入</span></span></a></li><li><a class="level is-mobile" href="#数据维护"><span class="level-left"><span class="level-item">4</span><span class="level-item">数据维护</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#数据合并"><span class="level-left"><span class="level-item">4.1</span><span class="level-item">数据合并</span></span></a></li><li><a class="level is-mobile" href="#索引和视图的维护"><span class="level-left"><span class="level-item">4.2</span><span class="level-item">索引和视图的维护</span></span></a></li></ul></li><li><a class="level is-mobile" href="#数据查询"><span class="level-left"><span class="level-item">5</span><span class="level-item">数据查询</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#数据合并-1"><span class="level-left"><span class="level-item">5.1</span><span class="level-item">数据合并</span></span></a></li><li><a class="level is-mobile" href="#查询优化"><span class="level-left"><span class="level-item">5.2</span><span class="level-item">查询优化</span></span></a></li></ul></li><li><a class="level is-mobile" href="#小结"><span class="level-left"><span class="level-item">6</span><span class="level-item">小结</span></span></a></li><li><a class="level is-mobile" href="#参考文献"><span class="level-left"><span class="level-item">7</span><span class="level-item">参考文献</span></span></a></li></ul></div></div><style>#toc .menu-list > li > a.is-active + .menu-list { display: block; }#toc .menu-list > li > a + .menu-list { display: none; }</style><script src="/js/toc.js" defer></script></div></div></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a><p class="is-size-7"><span>&copy; 2023 Xiaogang Shi (施晓罡)</span>  <span>All rights reserved.</span></p><p class="is-size-7">Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><script type="text/x-mathjax-config">MathJax.Hub.Config({
+            'HTML-CSS': {
+                matchFontHeight: false
+            },
+            SVG: {
+                matchFontHeight: false
+            },
+            CommonHTML: {
+                matchFontHeight: false
+            },
+            tex2jax: {
+                inlineMath: [
+                    ['$','$'],
+                    ['\\(','\\)']
+                ]
+            }
+        });</script><script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

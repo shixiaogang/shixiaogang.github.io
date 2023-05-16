@@ -1,27 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://shixiaogang.com/sketches/sticky-sampling/</loc>
-    <lastmod>2023-05-15</lastmod>
+    <loc>https://shixiaogang.com/lakehouses/napa/</loc>
+    <lastmod>2023-05-16</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/lakehouses/procella/</loc>
-    <lastmod>2023-05-15</lastmod>
+    <lastmod>2023-05-16</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/materialized-views/algebraic-methods/</loc>
-    <lastmod>2023-05-15</lastmod>
+    <lastmod>2023-05-16</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/sketches/lossy-counting/</loc>
-    <lastmod>2023-05-15</lastmod>
+    <lastmod>2023-05-16</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/sketches/misra-gries/</loc>
-    <lastmod>2023-05-15</lastmod>
+    <lastmod>2023-05-16</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/sketches/morris-counter/</loc>
-    <lastmod>2023-05-15</lastmod>
+    <lastmod>2023-05-16</lastmod>
+  </url>
+  <url>
+    <loc>https://shixiaogang.com/sketches/sticky-sampling/</loc>
+    <lastmod>2023-05-16</lastmod>
   </url>
 </urlset> 
