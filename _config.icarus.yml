@@ -238,15 +238,16 @@ widgets:
         amount: 20
         # Whether to show tags count, i.e. number of posts in the tag.
         show_count: true
-    # Google FeedBurner email subscription widget configurations
+    # Followit widget configurations
     -
         # Where should the widget be placed, left sidebar or right sidebar
         position: left
-        type: subscribe_email
+        type: followit
         # Hint text under the email input
         description: 
-        # Feedburner ID
-        feedburner_id: ''
+        # Followit action url
+        action_url: 'https://api.follow.it/subscription-form/M0d4amk2M2lxNWgxY0dzUzJPZEd6WVlYR2lEZjlhM2UzK29DSEtGNDVkK1VzK0kzV2tJTlh1NmdGMnB1ZG1hOTVDV2EzdXUyUXVPYTFMYjV0cUQ4bnd6dFd3K3RBblZRQTBvQUlid2ZRT2UwRlF0dkxnZlpLOEU1TGUrOUxhdmN8bGdEWklrYWJJaDljMCttc0wrMmZPWC9PNTlzK2xsR01QbVhteG5WaWxIVT0=/8'
+        verification_code: 'pXmPCTTZagQCz0BYVNyN'
 # Plugin configurations
 # https://ppoffice.github.io/hexo-theme-icarus/categories/Plugins/
 plugins:
