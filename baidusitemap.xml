@@ -1,35 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://shixiaogang.com/sketches/sticky-sampling/</loc>
-    <lastmod>2023-05-17</lastmod>
-  </url>
-  <url>
-    <loc>https://shixiaogang.com/lakehouses/kraken/</loc>
-    <lastmod>2023-05-17</lastmod>
-  </url>
-  <url>
     <loc>https://shixiaogang.com/lakehouses/napa/</loc>
-    <lastmod>2023-05-17</lastmod>
+    <lastmod>2023-05-22</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/lakehouses/procella/</loc>
-    <lastmod>2023-05-17</lastmod>
+    <lastmod>2023-05-22</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/materialized-views/algebraic-methods/</loc>
-    <lastmod>2023-05-17</lastmod>
+    <lastmod>2023-05-22</lastmod>
+  </url>
+  <url>
+    <loc>https://shixiaogang.com/materialized-views/hxy05/</loc>
+    <lastmod>2023-05-22</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/sketches/lossy-counting/</loc>
-    <lastmod>2023-05-17</lastmod>
+    <lastmod>2023-05-22</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/sketches/misra-gries/</loc>
-    <lastmod>2023-05-17</lastmod>
+    <lastmod>2023-05-22</lastmod>
   </url>
   <url>
     <loc>https://shixiaogang.com/sketches/morris-counter/</loc>
-    <lastmod>2023-05-17</lastmod>
+    <lastmod>2023-05-22</lastmod>
+  </url>
+  <url>
+    <loc>https://shixiaogang.com/sketches/sticky-sampling/</loc>
+    <lastmod>2023-05-22</lastmod>
+  </url>
+  <url>
+    <loc>https://shixiaogang.com/lakehouses/kraken/</loc>
+    <lastmod>2023-05-22</lastmod>
   </url>
 </urlset> 

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>Asymmetric batch incremental view maintenance - Xiaogang Shi&#039;s Home</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Xiaogang Shi&#039;s Home"><meta name="msapplication-TileImage" content="/img/favicon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Xiaogang Shi&#039;s Home"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="之前的物化视图维护中，我们一般不会区别对待不同表的更新。但 [1] 注意到，不同表的更新会导致不同的物化视图维护开销，因此应该对这些更新使用不同的调度策略来使得整体的维护开销最低。对于维护开销和输入数据量成线性关系的更新，我们可以尽可能地实时维护来降低在查询时的延迟；而对在维护时需要扫描全表的这类更新，我们则在保障查询延迟的前提下尽可能地推迟视图的维护。[1] 对视图维护中不同输入更新的调度策略进"><meta property="og:type" content="blog"><meta property="og:title" content="Asymmetric batch incremental view maintenance"><meta property="og:url" content="https://shixiaogang.com/materialized-views/hxy05/"><meta property="og:site_name" content="Xiaogang Shi&#039;s Home"><meta property="og:description" content="之前的物化视图维护中，我们一般不会区别对待不同表的更新。但 [1] 注意到，不同表的更新会导致不同的物化视图维护开销，因此应该对这些更新使用不同的调度策略来使得整体的维护开销最低。对于维护开销和输入数据量成线性关系的更新，我们可以尽可能地实时维护来降低在查询时的延迟；而对在维护时需要扫描全表的这类更新，我们则在保障查询延迟的前提下尽可能地推迟视图的维护。[1] 对视图维护中不同输入更新的调度策略进"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://shixiaogang.com/img/materializedviews-hxy05-astar.png"><meta property="article:published_time" content="2023-05-22T00:00:00.000Z"><meta property="article:modified_time" content="2023-05-22T13:57:44.152Z"><meta property="article:author" content="Xiaogang Shi (施晓罡)"><meta property="article:tag" content="ETL"><meta property="article:tag" content="物化视图"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://shixiaogang.com/img/materializedviews-hxy05-astar.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://shixiaogang.com/materialized-views/hxy05/"},"headline":"Asymmetric batch incremental view maintenance","image":["https://shixiaogang.com/img/materializedviews-hxy05-astar.png"],"datePublished":"2023-05-22T00:00:00.000Z","dateModified":"2023-05-22T13:57:44.152Z","author":{"@type":"Person","name":"Xiaogang Shi (施晓罡)"},"publisher":{"@type":"Organization","name":"Xiaogang Shi's Home","logo":{"@type":"ImageObject","url":"https://shixiaogang.com/img/logo.png"}},"description":"之前的物化视图维护中，我们一般不会区别对待不同表的更新。但 [1] 注意到，不同表的更新会导致不同的物化视图维护开销，因此应该对这些更新使用不同的调度策略来使得整体的维护开销最低。对于维护开销和输入数据量成线性关系的更新，我们可以尽可能地实时维护来降低在查询时的延迟；而对在维护时需要扫描全表的这类更新，我们则在保障查询延迟的前提下尽可能地推迟视图的维护。[1] 对视图维护中不同输入更新的调度策略进"}</script><link rel="canonical" href="https://shixiaogang.com/materialized-views/hxy05/"><link rel="icon" href="/img/favicon.png"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><meta name="follow.it-verification-code" content="pXmPCTTZagQCz0BYVNyN"><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="Xiaogang Shi's Home" type="application/atom+xml">
+</head><body class="is-3-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Blog</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item is-hidden-tablet catalogue" title="目录" href="javascript:;"><i class="fas fa-list-ul"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-6-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2023-05-22T00:00:00.000Z" title="5/22/2023, 12:00:00 AM">2023-05-22</time>发表</span><span class="level-item">21 分钟读完 (大约3078个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">Asymmetric batch incremental view maintenance</h1><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/ETL/">ETL</a><a class="link-muted mr-2" rel="tag" href="/tags/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/">物化视图</a></div><div class="content"><p>之前的物化视图维护中，我们一般不会区别对待不同表的更新。但 [1] 注意到，不同表的更新会导致不同的物化视图维护开销，因此应该对这些更新使用不同的调度策略来使得整体的维护开销最低。对于维护开销和输入数据量成线性关系的更新，我们可以尽可能地实时维护来降低在查询时的延迟；而对在维护时需要扫描全表的这类更新，我们则在保障查询延迟的前提下尽可能地推迟视图的维护。[1] 对视图维护中不同输入更新的调度策略进行研究，提出了两个有效的算法。</p>
+<h2 id="问题定义"><a href="#问题定义" class="headerlink" title="问题定义"></a>问题定义</h2><p>设$V$是一个定义在基础表$R_1, …, R_n$上的一个物化视图。我们假设时间是离散的。在时间区间$[0, T]$上的任一时刻$t$，每个基础表都有任意数目的更新到达。我们使用一个$n$维的数组$\mathbf{d}_t$表示在时刻$t$到达的更新数目，其中$\mathbf{d}_t[i]$表示表$R_i$在时刻$t$到达的更新。</p>
+<p>在任意时刻，我们可以将每个基础表中的部分或者全部更新应用到物化视图中。我们使用$\mathbf{s}_t$来记录在时刻$t$每个基础表还未应用到物化视图中的更新数目，使用$\mathbf{p}_t$表示在时刻$t$应用到物化视图中的更新数目。在每个时刻，我们会应用一部分更新，同时也会有新的更新到达，因此$\mathbf{s}_{t+1} &#x3D; \mathbf{s}_t - \mathbf{p}_t + \mathbf{d}_{t+1}$。</p>
+<p>我们假设维护视图的开销只和更新的表以及更新的数目相关。来自表$R_i$的$k$个更新应用到视图$V$的开销可以通过函数$f_i(k)$​来表示。对于不同表的更新，维护视图的开销函数可能是不同的。<em>来自同一个表的不同更新在维护视图时的开销可能也是不同，但在本文中暂时不会考虑。</em></p>
+<p>我们假设对于视图维护开销函数$f_i: \mathbb{Z}^+ \to \mathbb{R}$满足以下两个条件</p>
+<ul>
+<li><strong>单调性（Monotonicity）</strong>：对任意的$x \ge y \ge 0$，有$f_i(x) \ge f_i(y)$ </li>
+<li><strong>次可加性（Subadditivity）</strong>：$f_i(0) &#x3D; 0$，并且对于任意的$x \ge 0$和$y \ge 0$，有$f_i(x+y) \le f_i(x) + f_i(y)$</li>
+</ul>
+<p>在查询视图时，我们需要将未应用到视图的更新也反映到查询结果中。我们假设在查询时反映更新的开销和维护视图的开销是一致的，也通过$f &#x3D; {f_1, …, f_n}$来表示。在时刻$t$，系统中未应用到视图的更新为$\mathbf{s}_t - \mathbf{p}_t$，此时的查询延迟可以通过$f(\mathbf{s}_t - \mathbf{p}_t)$表示。</p>
+<p>序列$\mathcal{P} &#x3D; \mathbf{p}_0, …, \mathbf{p}_T$就构成了一个在时间区间$[0, T]$上的<strong>视图维护计划</strong>。满足以下条件的视图维护计被称为是一个<strong>有效的的视图维护计划</strong>。</p>
+<ul>
+<li>视图在时刻$T$是完全更新的，即$\mathbf{s}_T &#x3D; \mathbf{0}$</li>
+<li>在任意时刻，我们选择更新每个表部分或者全部的剩余更新，即$\forall i \in [1, n], 0 \le \mathbf{p}_t[i] \le \mathbf{s}_t[i]$</li>
+<li>在任意时刻，查询开销不超过给定的阈值$C$，即$f(\mathbf{s}_t - \mathbf{p}_t) \le C$</li>
+</ul>
+<p>我们目标是寻找开销最低的一个有效视图维护计划，即在满足查询开销限制的前提下，使得下式最小：</p>
+<p>$$f(\mathcal{P}) &#x3D; \sum_{i &#x3D; 0}^T f(\mathbf{p}_t) &#x3D; \sum_{t &#x3D; 0}^T \sum_{i &#x3D; 1}^n f_i(\mathbf{p}_t[i])$$</p>
+<h2 id="延迟维护计划"><a href="#延迟维护计划" class="headerlink" title="延迟维护计划"></a>延迟维护计划</h2><p>如果$f(\mathbf{s}_t) &gt; C$，我们称系统状态$\mathbf{s}_t$已经<strong>溢出</strong>了。此时如果我们不采取任何维护动作（即$\mathbf{p}_t &#x3D; \mathbf{0}$），那么此时的查询开销就会超过给定的阈值。在系统状态$\mathbf{s}_t$溢出时采取的维护动作被称为是<strong>延迟</strong>的维护动作。如果维护计划$\mathcal{P}$中每个维护动作都是延迟的，那么$\mathcal{P}$被称为延迟的维护计划，即对所有的$t \in [0, T]$，$\mathbf{p}_t$要么为$\mathbf{0}$，要么是延迟的。</p>
+<p>给定任意一个有效的维护计划，<code>MakeLazyPlan</code>算法可以用于构造一个有效的延迟维护计划。</p>
+<div class="listing"><div class="listing-title"><div class="level-left"><strong>MakeLazyPlan</strong></div></div><div class="listing-body"><table><tbody><tr><td class="gutter">0</td><td class="code"><p>&#x2F;&#x2F; Input: $\mathbf{p_0}, …, \mathbf{p}_T$</p>
+</td></tr><tr><td class="gutter">1</td><td class="code"><p>&#x2F;&#x2F; Output: $\mathbf{q}_0, …, \mathbf{q}_T$</p>
+</td></tr><tr><td class="gutter">2</td><td class="code"><p>$\mathbf{q} \gets \mathbf{0}$</p>
+</td></tr><tr><td class="gutter">3</td><td class="code"><p>for $t &#x3D; 0$ to $T$ </p>
+</td></tr><tr><td class="gutter">4</td><td class="code"><p>​    $\mathbf{q} \gets \mathbf{q} + \mathbf{p}_t$</p>
+</td></tr><tr><td class="gutter">5</td><td class="code"><p>​    if $f(\mathbf{s}_t^\mathbf{Q}) &gt; C$ or $t &#x3D; T$ then </p>
+</td></tr><tr><td class="gutter">6</td><td class="code"><p>​        $\mathbf{q}_t \gets \mathbf{q}$</p>
+</td></tr><tr><td class="gutter">7</td><td class="code"><p>​        $\mathbf{q} \gets \mathbf{0}$</p>
+</td></tr><tr><td class="gutter">8</td><td class="code"><p>​    else</p>
+</td></tr><tr><td class="gutter">9</td><td class="code"><p>​        $\mathbf{q}_t \gets \mathbf{0}$</p>
+</td></tr><tr><td class="gutter">10</td><td class="code"><p>​    end if </p>
+</td></tr><tr><td class="gutter">11</td><td class="code"><p>return $\mathbf{q}_0, …, \mathbf{q}_T$</p>
+</td></tr></tbody></table></div></div>
+
+
+
+<p><strong>定理1.</strong> 对于任意一个有效的维护计划$\mathcal{P}$，都存在一个有效的延迟维护计划$\mathcal{Q}$，使得$f(\mathcal{Q}) \le f(\mathcal{P})$。</p>
+<p><strong>证明.</strong> 给定一个维护计划$\mathcal{P} &#x3D; {\mathbf{p}_0, …, \mathbf{p}_T }$，我们使用<code>MakeLazyPlan</code>算法来构造一个延迟维护计划$\mathcal{Q}$。由于$\mathcal{Q}$中每个非零的维护动作$\mathbf{q}_t$都是由一个或多个$\mathcal{P}$中的维护动作合并而成，根据我们对成本函数次可加性的假设，我们可以得到$f(\mathcal{Q}) \le f(\mathcal{P})$。</p>
+<h2 id="最小贪心的延迟维护计划"><a href="#最小贪心的延迟维护计划" class="headerlink" title="最小贪心的延迟维护计划"></a>最小贪心的延迟维护计划</h2><p>根据上面这个定义，最优的维护计划一定是延迟的。这可以帮助我们减小问题的搜索空间。但这个空间仍然很大。论文进一步将搜索空间缩小到了LGM维护计划。</p>
+<p>一个延迟的维护计划$\mathcal{P} &#x3D; \mathbf{p}_0, …, \mathbf{p}_T$被称为是最小贪心的延迟维护计划（或LGM维护计划），如果其满足以下两个条件</p>
+<ul>
+<li><strong>贪心性</strong>：$\mathcal{P}$中的每个维护动作都是贪心的，即对每个表要么处理其当前所有的更新，要么完全不处理。也就是，对所有的$t \in [0, T]$和$i \in [1, n]$，有$\mathbf{p}_t[i] &#x3D; \mathbf{s}_t[i]$或$\mathbf{p}_t[i] &#x3D; 0$。</li>
+<li><strong>最小性</strong>：除了$\mathbf{p}_T$之外，其他的维护动作$\mathbf{p}_t$都是最小的，即没法将一个$\mathbf{p}_t$的非空成员设置为0之后使得$f(\mathbf{s}_t - \mathbf{p}_t) \le C$仍然成立。</li>
+</ul>
+<p>给定一个有效的维护计划$\mathcal{P}$，下面这个算法可以构造一个有效的LGM维护计划。其中，我们使用$\mathbf{s}^\mathcal{P}_t$表示在维护计划$\mathcal{P}$下时刻$t$的系统状态；给定$\mathbf{q}’$，算法<code>MinimizePlan</code>通过将$\mathbf{q}’$中的一个或多个非空成员设置为0返回一个满足$f(\mathbf{s} - \mathbf{q}) \le C$的最小维护计划$\mathbf{q}$。</p>
+<div class="listing"><div class="listing-title"><div class="level-left"><strong>MakeLGMPlan</strong></div></div><div class="listing-body"><table><tbody><tr><td class="gutter">0</td><td class="code"><p>&#x2F;&#x2F; Input: $\mathbf{p_0}, …, \mathbf{p}_T$</p>
+</td></tr><tr><td class="gutter">1</td><td class="code"><p>&#x2F;&#x2F; Output: $\mathbf{q}_0, …, \mathbf{q}_T$</p>
+</td></tr><tr><td class="gutter">2</td><td class="code"><p>for $t &#x3D; 0$ to $T - 1$ </p>
+</td></tr><tr><td class="gutter">3</td><td class="code"><p>​    if $f(\mathbf{s}_t^\mathcal{Q}) &gt; C$ then</p>
+</td></tr><tr><td class="gutter">4</td><td class="code"><p>​        for $i &#x3D; 1$ to $n$ do </p>
+</td></tr><tr><td class="gutter">5</td><td class="code"><p>​            if $\mathbf{s}_t^\mathcal{Q}[i] &gt; \mathbf{s}_t^\mathcal{P}[i] - \mathbf{p}_t^\mathcal{P}[i]$ then</p>
+</td></tr><tr><td class="gutter">6</td><td class="code"><p>​                $\mathbf{q}_t’[i] \gets \mathbf{s}_t^\mathcal{Q}[i]$</p>
+</td></tr><tr><td class="gutter">7</td><td class="code"><p>​            else </p>
+</td></tr><tr><td class="gutter">8</td><td class="code"><p>​                $\mathbf{q}_t’[i] \gets 0$</p>
+</td></tr><tr><td class="gutter">9</td><td class="code"><p>​            end if</p>
+</td></tr><tr><td class="gutter">10</td><td class="code"><p>​        $\mathbf{q}_t \gets \text{MinimizePlan}(\mathbf{q}_t’)$</p>
+</td></tr><tr><td class="gutter">11</td><td class="code"><p>​    else </p>
+</td></tr><tr><td class="gutter">12</td><td class="code"><p>​        $\mathbf{q}_t \gets \mathbf{0}$</p>
+</td></tr><tr><td class="gutter">13</td><td class="code"><p>​    end if</p>
+</td></tr><tr><td class="gutter">14</td><td class="code"><p>$\mathbf{q}<em>T \gets \mathbf{s}^\mathcal{Q}</em>{T-1}$</p>
+</td></tr><tr><td class="gutter">15</td><td class="code"><p>return $\mathbf{q}_0, …, \mathbf{q}_T$</p>
+</td></tr></tbody></table></div></div>
+
+
+
+<p>通过贪心性和最小性可以极大的减少我们的搜索范围，但也会导致更差的维护计划（更高的维护开销）。但下面这个定理证明，<code>MakeLGMPlan</code>算法导致的维护开销增加是有限的。</p>
+<p><strong>定理2.</strong> 对于任意给定的一个有效的维护计划$\mathcal{P}$，$\mathcal{Q}$是对$\mathcal{P}$通过<code>MakeLGMPlan</code>生成的LGM维护计划，有</p>
+<p>$$ f(\mathcal{Q}) \le 2 \cdot f(\mathcal{P}) $$</p>
+<p><strong>证明.</strong> 见 [1]。</p>
+<h2 id="搜索最小贪心的延迟维护计划"><a href="#搜索最小贪心的延迟维护计划" class="headerlink" title="搜索最小贪心的延迟维护计划"></a>搜索最小贪心的延迟维护计划</h2><p>[1] 提出了两种用于搜索LGM维护计划的算法，第一个基于A*算法；第二个则是一个在线启发算法。</p>
+<h3 id="A-算法"><a href="#A-算法" class="headerlink" title="A*算法"></a>A*算法</h3><p>为了能够应用A*算法，我们首先将搜索空间映射为一张图$G$。在这个图中，每个节点都表示采取维护动作之后一个可能的系统状态。如果在一个有效的LGM维护计划中，可以从系统状态$\mathbf{s}_t’$变为$\mathbf{s}’_{t+1}$，我们就可以在这两个系统状态对应的顶点之间添加一条有向边。此外，$G$有一个在时刻-1的源点，表示系统还没有任何更新到达的初始状态；一个在时刻$T$的汇点，表示所有更新都已经反映到视图中的终止状态。</p>
+<p><img src="/../../img/materializedviews-hxy05-astar.png" alt="image-20230522181239372"></p>
+<p>之后，我们可以利用A*搜索算法来搜索一个从源点到汇点的最优路径。我们使用评估函数$d(x) &#x3D; g(x) + h(x)$来扩展搜索路径，其中$g(x)$表示从源点到节点$x$的最小路径开销；$h(x)$是从节点$x$到终点的开销估计。</p>
+<p>我们使用下面启发式算法来对$h(x)$进行计算</p>
+<p>$$h(x) &#x3D; \sum_{i &#x3D; 1}^n \left \lfloor \frac{\mathbf{s}[i] + K_i}{m_i + B_i} \right \rfloor f_i(b_i)$$</p>
+<p>其中</p>
+<ul>
+<li>$B_i &#x3D; \max \{ b | f_i(b) \le C \}$是在满足查询开销约束下能够处理的最大更新数目</li>
+<li>$m_i$是表$R_i$在任一时刻能够到达的最大更新数目</li>
+<li>$K_i$是表$R_i$在时间区间$(t, T]$到达的最大更新数目</li>
+</ul>
+<p>可以证明，$h(x)$是可采纳的（admissible）和一致的（consistent）。根据A*算法的最优性条件可以知道，我们最终找到的路径就是全局最优的路径。注意，所以这里找到的全局最优路径是在$h(x)$下的最优路径。由于$h(x)$对维护开销的估计和实际并不一致，我们得到的而非实际上的最优维护方案。</p>
+<h3 id="启发算法"><a href="#启发算法" class="headerlink" title="启发算法"></a>启发算法</h3><p>[1] 还提出了一个在线启发的算法，用于在无法获知更新到达分布的情况下提供维护计划。</p>
+<p>假设在时刻$t$，系统状态$\mathbf{s}_t$溢出了，即$f(\mathbf{s}_t) &gt; C$。此时我们需要采取维护动作来保障查询开销的限制。我们选择一个最小贪心的维护动作$\mathbf{q}_t$使得下式的值最小</p>
+<p>$$H(\mathbf{q}_t) &#x3D; \frac{F_t + f(\mathbf{q}_t)}{t + \text{TimeToFull}(\mathbf{s}_t - \mathbf{q}_t)}$$</p>
+<p>其中</p>
+<ul>
+<li>$F_t$为当前维护计划已经花费的维护开销，即$F_t &#x3D; \sum_{i &#x3D; 0}^{t-1} f(\mathbf{p}_i)$。</li>
+<li>$\text{TimeToFull}(\mathbf{s})$用来预测后续的更新使得系统状态溢出所需的时间。这个预测可以在运行时动态的进行维护。</li>
+</ul>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这篇文章是第一个将物化视图维护的调度拓展到数据维度上的工作。这个文章还发现了最优的维护计划一定是延迟的，这个可以很好的帮助减少搜索空间。文章将搜索空间进一步缩小到了最小贪心的延迟计划，并用搜索和启发式算法给出了近似求解的方案。</p>
+<p>但这个文章在设计求解算法的时候，没有考虑成本开销。根据直观的感受，如果应用某个表的更新代价很低，那么我们应该可以以更高的频率去应用这个表的更新。这个规则应该可以在搜索和启发过程中提供一些帮助。</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><p>[1] H. He et al. Asymmetric batch incremental view maintenance. In ICDE 2005, pp. 106-117.</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>Asymmetric batch incremental view maintenance</p><p><a href="https://shixiaogang.com/materialized-views/hxy05/">https://shixiaogang.com/materialized-views/hxy05/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>Xiaogang Shi (施晓罡)</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2023-05-22</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2023-05-22</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=642765864f61b7001240a131&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><!--!--><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/lakehouses/kraken/"><span class="level-item">Meta’s next-generation realtime monitoring and analytics platform</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><script src="https://utteranc.es/client.js" repo="shixiaogang/shixiaogang.github.io" issue-term="pathname" crossorigin="anonymous" async></script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-left flex-shrink-1"><div><figure class="image mx-auto mb-2"><img class="avatar" src="/img/avatar.jpg" alt="Xiaogang Shi (施晓罡)"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">Xiaogang Shi (施晓罡)</p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-envelope mr-1"></i><span>shixiaogangg AT gmail.com</span></p><p class="is-size-6 is-flex justify-content-start mt-2"><i class="fas fa-map-marker-alt mr-1"></i><span>Beijing, China</span></p><p class="social-links is-size-6 is-flex justify-content-start mt-2"><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Github" href="https://github.com/shixiaogang"><i class="fab fa-github"></i></a><a class="is-transparent mr-3" target="_blank" rel="noopener" title="Linkedin" href="https://www.linkedin.com/in/xiaogang-shi-8467a9a8/"><i class="fab fa-linkedin"></i></a></p></div></div></nav></div></div><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">分类</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/%E6%95%B0%E6%8D%AE%E6%B9%96%E4%BB%93/"><span class="level-start"><span class="level-item">数据湖仓</span></span><span class="level-end"><span class="level-item tag">3</span></span></a></li><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="level-start"><span class="level-item">概要算法</span></span><span class="level-end"><span class="level-item tag">4</span></span></a><ul><li><a class="level is-mobile" href="/categories/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="level-start"><span class="level-item">频数估计</span></span><span class="level-end"><span class="level-item tag">4</span></span></a></li></ul></li><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="level-start"><span class="level-item">物化视图</span></span><span class="level-end"><span class="level-item tag">2</span></span></a><ul><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/%E7%BB%B4%E6%8A%A4%E6%96%B9%E6%B3%95/"><span class="level-start"><span class="level-item">维护方法</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li><li><a class="level is-mobile" href="/categories/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/%E7%BB%B4%E6%8A%A4%E8%B0%83%E5%BA%A6/"><span class="level-start"><span class="level-item">维护调度</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></li></ul></div></div></div><div class="card widget" data-type="tags"><div class="card-content"><div class="menu"><h3 class="menu-label">标签</h3><div class="field is-grouped is-grouped-multiline"><div class="control"><a class="tags has-addons" href="/tags/ETL/"><span class="tag">ETL</span><span class="tag">2</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%95%B0%E6%8D%AE%E6%B5%81/"><span class="tag">数据流</span><span class="tag">4</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%95%B0%E6%8D%AE%E6%B9%96%E4%BB%93/"><span class="tag">数据湖仓</span><span class="tag">3</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%A6%82%E8%A6%81%E7%AE%97%E6%B3%95/"><span class="tag">概要算法</span><span class="tag">4</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE/"><span class="tag">物化视图</span><span class="tag">2</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E9%A2%91%E6%95%B0%E4%BC%B0%E8%AE%A1/"><span class="tag">频数估计</span><span class="tag">4</span></a></div></div></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">follow.it</h3><form action="https://api.follow.it/subscription-form/M0d4amk2M2lxNWgxY0dzUzJPZEd6WVlYR2lEZjlhM2UzK29DSEtGNDVkK1VzK0kzV2tJTlh1NmdGMnB1ZG1hOTVDV2EzdXUyUXVPYTFMYjV0cUQ4bnd6dFd3K3RBblZRQTBvQUlid2ZRT2UwRlF0dkxnZlpLOEU1TGUrOUxhdmN8bGdEWklrYWJJaDljMCttc0wrMmZPWC9PNTlzK2xsR01QbVhteG5WaWxIVT0=/8" method="post" target="_blank"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="订阅"></div></div></form></div></div></div><div class="column-right-shadow is-hidden-widescreen"></div></div><div class="column column-right is-4-tablet is-4-desktop is-3-widescreen is-hidden-touch is-hidden-desktop-only order-3"><div class="card widget" id="toc" data-type="toc"><div class="card-content"><div class="menu"><h3 class="menu-label">目录</h3><ul class="menu-list"><li><a class="level is-mobile" href="#问题定义"><span class="level-left"><span class="level-item">1</span><span class="level-item">问题定义</span></span></a></li><li><a class="level is-mobile" href="#延迟维护计划"><span class="level-left"><span class="level-item">2</span><span class="level-item">延迟维护计划</span></span></a></li><li><a class="level is-mobile" href="#最小贪心的延迟维护计划"><span class="level-left"><span class="level-item">3</span><span class="level-item">最小贪心的延迟维护计划</span></span></a></li><li><a class="level is-mobile" href="#搜索最小贪心的延迟维护计划"><span class="level-left"><span class="level-item">4</span><span class="level-item">搜索最小贪心的延迟维护计划</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#A-算法"><span class="level-left"><span class="level-item">4.1</span><span class="level-item">A*算法</span></span></a></li><li><a class="level is-mobile" href="#启发算法"><span class="level-left"><span class="level-item">4.2</span><span class="level-item">启发算法</span></span></a></li></ul></li><li><a class="level is-mobile" href="#小结"><span class="level-left"><span class="level-item">5</span><span class="level-item">小结</span></span></a></li><li><a class="level is-mobile" href="#参考文献"><span class="level-left"><span class="level-item">6</span><span class="level-item">参考文献</span></span></a></li></ul></div></div><style>#toc .menu-list > li > a.is-active + .menu-list { display: block; }#toc .menu-list > li > a + .menu-list { display: none; }</style><script src="/js/toc.js" defer></script></div></div></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/logo.png" alt="Xiaogang Shi&#039;s Home" height="28"></a><p class="is-size-7"><span>&copy; 2023 Xiaogang Shi (施晓罡)</span>  <span>All rights reserved.</span></p><p class="is-size-7">Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><script type="text/x-mathjax-config">MathJax.Hub.Config({
+            'HTML-CSS': {
+                matchFontHeight: false
+            },
+            SVG: {
+                matchFontHeight: false
+            },
+            CommonHTML: {
+                matchFontHeight: false
+            },
+            tex2jax: {
+                inlineMath: [
+                    ['$','$'],
+                    ['\\(','\\)']
+                ]
+            }
+        });</script><script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
